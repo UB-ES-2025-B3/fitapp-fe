@@ -1,0 +1,4 @@
+/* base.css */
+*{box-sizing:border-box} html,body,#app{height:100%}
+body{margin:0;background:var(--c-bg);color:var(--c-text);font-family:system-ui,-apple-system,Segoe UI,Roboto}
+a{color:var(--c-accent)}

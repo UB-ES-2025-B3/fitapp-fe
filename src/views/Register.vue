@@ -1,0 +1,1 @@
+<template><main style="padding:16px">Register</main></template>
