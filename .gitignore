@@ -28,3 +28,9 @@ coverage
 *.sw?
 
 *.tsbuildinfo
+
+.env
+.env.*.local
+
+# Carpetas de build y caché de Vite
+.vite/
