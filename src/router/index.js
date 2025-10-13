@@ -1,20 +1,35 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import RegisterView from '../views/Register.vue'
+import LoginView from '../views/Login.vue'
+import HomeView from '../views/Home.vue'
 
-const Login = () => import('../views/Login.vue');
-const Register = () => import('../views/Register.vue');
-const Home = () => import('../views/Home.vue');
-const OnboardingProfile = () => import('../views/OnboardingProfile.vue');
+
+// Creamos la ruta para el registro de usuarios.
+const routes = [
+  {
+    path: '/register',
+    name: 'register',
+    component: RegisterView
+  },
+  {
+    path: '/login',
+    name: 'login',
+    component: LoginView
+  },
+  {
+    path: '/',
+    name: 'home',
+    component: HomeView
+  }
+]
+
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
-  routes: [
-    { path: '/', redirect: '/login' },
-    { path: '/login', component: Login },
-    { path: '/register', component: Register },
-    { path: '/home', component: Home },
-    { path: '/onboarding/profile', component: OnboardingProfile },
-    { path: '/:pathMatch(.*)*', component: { template: '<main style="padding:16px">404</main>' } },
-  ],
-});
+  history: createWebHistory(),
+  routes
+})
+
+
+
 
 export default router;
