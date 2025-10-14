@@ -1,1 +1,335 @@
-<template><main style="padding:16px">Login</main></template>
+<template>
+  <div class="register-container">
+    <div class="register-card">
+      <div class="card-header">
+        <h1>Iniciar Sesión</h1>
+        <p class="subtitle">Bienvenido de nuevo</p>
+
+        <!-- Logo de la aplicación -->
+        <img
+          src="/logo_fitapp.png"
+          alt="Logo de la aplicación"
+          class="app-logo"
+        />
+      </div>
+
+      <form @submit.prevent="handleSubmit" class="register-form">
+        <!-- Email -->
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input
+            id="email"
+            v-model="formData.email"
+            type="email"
+            placeholder="tuemail@ejemplo.com"
+            @blur="validateEmail"
+            :class="{ 'input-error': errors.email }"
+          />
+          <span v-if="errors.email" class="error-message">
+            {{ errors.email }}
+          </span>
+        </div>
+
+        <!-- Password -->
+        <div class="form-group">
+          <label for="password">Contraseña</label>
+          <input
+            id="password"
+            v-model="formData.password"
+            type="password"
+            placeholder="Tu contraseña"
+            @blur="validatePassword"
+            :class="{ 'input-error': errors.password }"
+          />
+          <span v-if="errors.password" class="error-message">
+            {{ errors.password }}
+          </span>
+        </div>
+
+        <!-- Error general -->
+        <div v-if="submitError" class="error-box">
+          {{ submitError }}
+        </div>
+
+        <!-- Botón submit -->
+        <button
+          type="submit"
+          class="submit-btn"
+          :disabled="!isFormValid || isLoading"
+        >
+          <span v-if="isLoading">Ingresando...</span>
+          <span v-else>Iniciar sesión</span>
+        </button>
+      </form>
+
+      <!-- Link a registro -->
+      <div class="login-link">
+        ¿No tienes cuenta?
+        <router-link to="/register" class="link-bold">Crear una cuenta</router-link>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed } from 'vue'
+
+const formData = ref({
+  email: '',
+  password: ''
+})
+
+const errors = ref({
+  email: '',
+  password: ''
+})
+
+const isLoading = ref(false)
+const submitError = ref('')
+
+const validateEmail = () => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+  if (!formData.value.email) {
+    errors.value.email = 'El email es obligatorio'
+    return false
+  }
+
+  if (!emailRegex.test(formData.value.email)) {
+    errors.value.email = 'Email no válido'
+    return false
+  }
+
+  errors.value.email = ''
+  return true
+}
+
+const validatePassword = () => {
+  if (!formData.value.password) {
+    errors.value.password = 'La contraseña es obligatoria'
+    return false
+  }
+
+  if (formData.value.password.length < 6) {
+    errors.value.password = 'Debe tener al menos 6 caracteres'
+    return false
+  }
+
+  errors.value.password = ''
+  return true
+}
+
+const isFormValid = computed(() => {
+  return (
+    formData.value.email &&
+    formData.value.password &&
+    !errors.value.email &&
+    !errors.value.password
+  )
+})
+
+const handleSubmit = async () => {
+  const emailValid = validateEmail()
+  const passwordValid = validatePassword()
+  if (!emailValid || !passwordValid) return
+
+  isLoading.value = true
+  submitError.value = ''
+
+  try {
+    // Simular llamada a API
+    await new Promise(resolve => setTimeout(resolve, 2000))
+
+    // Simular error aleatorio
+    if (Math.random() > 0.5) {
+      throw new Error('Credenciales incorrectas. Intenta de nuevo.')
+    }
+
+    // Éxito
+    alert('¡Inicio de sesión exitoso!')
+    console.log('Datos enviados:', formData.value)
+  } catch (error) {
+    // Error en el submit
+    submitError.value = error.message
+  } finally {
+    isLoading.value = false
+  }
+}
+</script>
+
+<style scoped>
+/* Estilos reutilizados */
+.register-container {
+  min-height: calc(100vh - 70px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fafafa;
+  padding: 40px 20px;
+}
+
+.register-card {
+  background: #ffffff;
+  padding: 48px 40px;
+  border-radius: 16px;
+  border: 1px solid #e5e5e5;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  width: 100%;
+  max-width: 440px;
+}
+
+.card-header {
+  margin-bottom: 32px;
+  text-align: center;
+}
+
+h1 {
+  margin: 0 0 8px 0;
+  color: #000000;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+}
+
+.subtitle {
+  color: #666666;
+  font-size: 16px;
+  margin: 0;
+  font-weight: 400;
+}
+
+/* 🖼️ Logo */
+.app-logo {
+  width: 100px;
+  height: auto;
+  margin: 20px auto 0;
+  display: block;
+  opacity: 0.9;
+  transition: opacity 0.2s ease;
+}
+
+.app-logo:hover {
+  opacity: 1;
+}
+
+.register-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+label {
+  font-weight: 600;
+  color: #000000;
+  font-size: 14px;
+  letter-spacing: -0.2px;
+}
+
+input[type="email"],
+input[type="password"] {
+  padding: 14px 16px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 10px;
+  font-size: 15px;
+  transition: all 0.2s ease;
+  background: #ffffff;
+  color: #000000;
+  font-family: inherit;
+}
+
+input[type="email"]:focus,
+input[type="password"]:focus {
+  outline: none;
+  border-color: #000000;
+  background: #fafafa;
+}
+
+.input-error {
+  border-color: #dc2626 !important;
+  background: #fef2f2 !important;
+}
+
+.error-message {
+  color: #dc2626;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.error-box {
+  background: #fef2f2;
+  color: #dc2626;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid #fecaca;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.submit-btn {
+  padding: 16px;
+  background: #000000;
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 8px;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: #333333;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.submit-btn:disabled {
+  background: #e5e5e5;
+  color: #999999;
+  cursor: not-allowed;
+}
+
+.login-link {
+  text-align: center;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #f0f0f0;
+  color: #666666;
+  font-size: 14px;
+}
+
+.link-bold {
+  color: #000000;
+  text-decoration: none;
+  font-weight: 600;
+  margin-left: 4px;
+  transition: opacity 0.2s;
+}
+
+.link-bold:hover {
+  opacity: 0.7;
+  text-decoration: underline;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .register-card {
+    padding: 32px 24px;
+  }
+
+  h1 {
+    font-size: 28px;
+  }
+
+  .app-logo {
+    width: 80px;
+  }
+}
+</style>
