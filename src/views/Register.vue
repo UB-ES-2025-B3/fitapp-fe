@@ -5,7 +5,7 @@
                 <h1>Crear Cuenta</h1>
                 <p class="subtitle">Únete a nosotros hoy</p>
             </div>
-            
+
             <form @submit.prevent="handleSubmit" class="register-form">
                 <!-- Email -->
                 <div class="form-group">
@@ -93,6 +93,12 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useRouter } from "vue-router";
+import { registerUser } from '@/services/authService.js'   // Ajusta la ruta según tu estructura
+import { useSessionStore } from "@/stores/session.js";
+const session = useSessionStore();
+const router = useRouter();
+
 
 // ESTADO DEL FORMULARIO (datos reactivos)
 const formData = ref({
@@ -116,17 +122,17 @@ const submitError = ref('')
 // VALIDACIONES INDIVIDUALES
 const validateEmail = () => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
- 
+
   if (!formData.value.email) {
     errors.value.email = 'El email es obligatorio'
     return false
   }
- 
+
   if (!emailRegex.test(formData.value.email)) {
     errors.value.email = 'Email no válido'
     return false
   }
- 
+
   errors.value.email = ''
   return true
 }
@@ -136,19 +142,19 @@ const validatePassword = () => {
     errors.value.password = 'La contraseña es obligatoria'
     return false
   }
- 
-  if (formData.value.password.length < 6) {
-    errors.value.password = 'Mínimo 6 caracteres'
+
+  if (formData.value.password.length < 8) {
+    errors.value.password = 'Mínimo 8 caracteres'
     return false
   }
- 
+
   errors.value.password = ''
- 
+
   // Re-validar confirm si ya tiene valor
   if (formData.value.confirmPassword) {
     validateConfirmPassword()
   }
- 
+
   return true
 }
 
@@ -157,12 +163,12 @@ const validateConfirmPassword = () => {
     errors.value.confirmPassword = 'Debes confirmar la contraseña'
     return false
   }
- 
+
   if (formData.value.password !== formData.value.confirmPassword) {
     errors.value.confirmPassword = 'Las contraseñas no coinciden'
     return false
   }
- 
+
   errors.value.confirmPassword = ''
   return true
 }
@@ -195,31 +201,38 @@ const handleSubmit = async () => {
   const emailValid = validateEmail()
   const passwordValid = validatePassword()
   const confirmValid = validateConfirmPassword()
- 
+
   if (!emailValid || !passwordValid || !confirmValid) {
     return
   }
- 
+
   // Simular llamada a API
   isLoading.value = true
   submitError.value = ''
- 
+
   try {
-    // Aquí irá tu llamada real a la API
-    await new Promise(resolve => setTimeout(resolve, 2000))
-   
-    // Simulamos un error aleatorio (50% de las veces)
-    if (Math.random() > 0.5) {
-      throw new Error('Error en el servidor. Intenta de nuevo.')
+
+    // Llamada real al backend
+    const payload = {
+      email: formData.value.email,
+      password: formData.value.password,
     }
-   
-    // ÉXITO
+
+    const response = await registerUser(payload)
+    session.setSession(response.token, response.profileExists);
+    console.log(session.token)
+    router.push("/OnboardingProfile");
+
     alert('¡Registro exitoso!')
-    console.log('Datos enviados:', formData.value)
-   
+    console.log('Usuario creado:', response)
+
+    // Opcional: redirigir al login / O MEJOR REDIRIGIR AL PROFILE, PERO YA LO DECIDIRÉ.
+    // router.push('/login')
+
   } catch (error) {
     // ERROR
-    submitError.value = error.message
+    console.error('Error al registrar:', error)
+    submitError.value = error.response?.data?.message || 'Error al crear la cuenta.'
   } finally {
     isLoading.value = false
   }
@@ -422,7 +435,7 @@ input[type="password"]::placeholder {
   .register-card {
     padding: 32px 24px;
   }
-  
+
   h1 {
     font-size: 28px;
   }

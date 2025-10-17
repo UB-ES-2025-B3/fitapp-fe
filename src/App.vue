@@ -4,7 +4,7 @@
     <nav class="navbar" v-if="showNavbar">
       <div class="nav-container">
         <!-- Logo/Nombre de la app -->
-        <router-link to="/" class="logo"> <img src="../public/logo_fitapp.png"/> FitApp </router-link>
+        <router-link to="/" class="logo"> <img src="../public/logo_principal.webp"/></router-link>
 
         <!-- Links de navegación -->
         <div class="nav-links">
@@ -129,6 +129,16 @@ window.loginSuccess = () => {
   align-items: center;
   gap: 8px;
   letter-spacing: -0.5px;
+  
+}
+
+.logo img {
+    /* Mantenemos el tamaño deseado */
+    width: 75px; 
+    height: 75px;
+    /* Esto asegura que la imagen no cree espacio extra,
+       lo cual a veces pasa con las imágenes inline */
+    display: block; 
 }
 
 .nav-links {

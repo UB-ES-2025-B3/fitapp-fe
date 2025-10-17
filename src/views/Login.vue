@@ -7,7 +7,7 @@
 
         <!-- Logo de la aplicación -->
         <img
-          src="/logo_fitapp.png"
+          src="../../public/logo_secundario.webp"
           alt="Logo de la aplicación"
           class="app-logo"
         />
@@ -73,6 +73,11 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useRouter } from "vue-router";
+import { loginUser } from '@/services/authService.js' // Ajusta la ruta según tu estructura
+import { useSessionStore } from "@/stores/session.js";
+const session = useSessionStore();
+const router = useRouter();
 
 const formData = ref({
   email: '',
@@ -110,8 +115,8 @@ const validatePassword = () => {
     return false
   }
 
-  if (formData.value.password.length < 6) {
-    errors.value.password = 'Debe tener al menos 6 caracteres'
+  if (formData.value.password.length < 8) {
+    errors.value.password = 'Debe tener al menos 8 caracteres'
     return false
   }
 
@@ -138,19 +143,21 @@ const handleSubmit = async () => {
 
   try {
     // Simular llamada a API
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    const response = await loginUser({
+      email: formData.value.email,
+      password: formData.value.password
+    });
 
-    // Simular error aleatorio
-    if (Math.random() > 0.5) {
-      throw new Error('Credenciales incorrectas. Intenta de nuevo.')
-    }
+    // Guarda el token (ya se guarda en authService)
+    console.log("Login exitoso. Token:", response.token);
 
-    // Éxito
-    alert('¡Inicio de sesión exitoso!')
-    console.log('Datos enviados:', formData.value)
+    alert("¡Inicio de sesión exitoso!");
+    //router.push("/dashboard"); // redirige donde tú quieras
+
   } catch (error) {
     // Error en el submit
-    submitError.value = error.message
+    console.error("Error al iniciar sesión:", error);
+    submitError.value = error.response?.data?.message || "Credenciales incorrectas.";
   } finally {
     isLoading.value = false
   }
@@ -200,13 +207,20 @@ h1 {
 
 /* 🖼️ Logo */
 .app-logo {
-  width: 100px;
-  height: auto;
-  margin: 20px auto 0;
+  width: 200px;
+  height: 200px;
+  /*margin: 20px auto 0; */
+  margin-top : 20px;
+  margin-bottom : 20px;
+  margin-left : auto;
+  margin-right : auto;
+
   display: block;
   opacity: 0.9;
   transition: opacity 0.2s ease;
 }
+
+
 
 .app-logo:hover {
   opacity: 1;
