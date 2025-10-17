@@ -93,6 +93,12 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useRouter } from "vue-router";
+import { registerUser } from '@/services/authService.js'   // Ajusta la ruta según tu estructura
+import { useSessionStore } from "@/stores/session.js";
+const session = useSessionStore();
+const router = useRouter();
+
 
 // ESTADO DEL FORMULARIO (datos reactivos)
 const formData = ref({
@@ -205,21 +211,28 @@ const handleSubmit = async () => {
   submitError.value = ''
  
   try {
-    // Aquí irá tu llamada real a la API
-    await new Promise(resolve => setTimeout(resolve, 2000))
-   
-    // Simulamos un error aleatorio (50% de las veces)
-    if (Math.random() > 0.5) {
-      throw new Error('Error en el servidor. Intenta de nuevo.')
+    
+    // Llamada real al backend
+    const payload = {
+      email: formData.value.email,
+      password: formData.value.password,
     }
-   
-    // ÉXITO
+
+    const response = await registerUser(payload)
+    session.setSession(response.token, response.profileExists);
+    console.log(session.token)
+    router.push("/OnboardingProfile");
+
     alert('¡Registro exitoso!')
-    console.log('Datos enviados:', formData.value)
+    console.log('Usuario creado:', response)
+
+    // Opcional: redirigir al login / O MEJOR REDIRIGIR AL PROFILE, PERO YA LO DECIDIRÉ. 
+    // router.push('/login')
    
   } catch (error) {
     // ERROR
-    submitError.value = error.message
+    console.error('Error al registrar:', error)
+    submitError.value = error.response?.data?.message || 'Error al crear la cuenta.'
   } finally {
     isLoading.value = false
   }

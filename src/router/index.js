@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import RegisterView from '../views/Register.vue'
 import LoginView from '../views/Login.vue'
 import HomeView from '../views/Home.vue'
-
+import OnboardingProfile from '@/views/OnboardingProfile.vue';
 
 // Creamos la ruta para el registro de usuarios.
 const routes = [
@@ -20,6 +20,11 @@ const routes = [
     path: '/',
     name: 'home',
     component: HomeView
+  },
+  {
+    path: '/OnboardingProfile',
+    name: 'OnboardingProfile',
+    component: OnboardingProfile
   }
 ]
 
