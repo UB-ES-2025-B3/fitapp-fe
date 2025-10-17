@@ -5,7 +5,7 @@
                 <h1>Crear Cuenta</h1>
                 <p class="subtitle">Únete a nosotros hoy</p>
             </div>
-            
+
             <form @submit.prevent="handleSubmit" class="register-form">
                 <!-- Email -->
                 <div class="form-group">
@@ -122,17 +122,17 @@ const submitError = ref('')
 // VALIDACIONES INDIVIDUALES
 const validateEmail = () => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
- 
+
   if (!formData.value.email) {
     errors.value.email = 'El email es obligatorio'
     return false
   }
- 
+
   if (!emailRegex.test(formData.value.email)) {
     errors.value.email = 'Email no válido'
     return false
   }
- 
+
   errors.value.email = ''
   return true
 }
@@ -142,19 +142,19 @@ const validatePassword = () => {
     errors.value.password = 'La contraseña es obligatoria'
     return false
   }
- 
-  if (formData.value.password.length < 6) {
-    errors.value.password = 'Mínimo 6 caracteres'
+
+  if (formData.value.password.length < 8) {
+    errors.value.password = 'Mínimo 8 caracteres'
     return false
   }
- 
+
   errors.value.password = ''
- 
+
   // Re-validar confirm si ya tiene valor
   if (formData.value.confirmPassword) {
     validateConfirmPassword()
   }
- 
+
   return true
 }
 
@@ -163,12 +163,12 @@ const validateConfirmPassword = () => {
     errors.value.confirmPassword = 'Debes confirmar la contraseña'
     return false
   }
- 
+
   if (formData.value.password !== formData.value.confirmPassword) {
     errors.value.confirmPassword = 'Las contraseñas no coinciden'
     return false
   }
- 
+
   errors.value.confirmPassword = ''
   return true
 }
@@ -201,17 +201,17 @@ const handleSubmit = async () => {
   const emailValid = validateEmail()
   const passwordValid = validatePassword()
   const confirmValid = validateConfirmPassword()
- 
+
   if (!emailValid || !passwordValid || !confirmValid) {
     return
   }
- 
+
   // Simular llamada a API
   isLoading.value = true
   submitError.value = ''
- 
+
   try {
-    
+
     // Llamada real al backend
     const payload = {
       email: formData.value.email,
@@ -226,9 +226,9 @@ const handleSubmit = async () => {
     alert('¡Registro exitoso!')
     console.log('Usuario creado:', response)
 
-    // Opcional: redirigir al login / O MEJOR REDIRIGIR AL PROFILE, PERO YA LO DECIDIRÉ. 
+    // Opcional: redirigir al login / O MEJOR REDIRIGIR AL PROFILE, PERO YA LO DECIDIRÉ.
     // router.push('/login')
-   
+
   } catch (error) {
     // ERROR
     console.error('Error al registrar:', error)
@@ -435,7 +435,7 @@ input[type="password"]::placeholder {
   .register-card {
     padding: 32px 24px;
   }
-  
+
   h1 {
     font-size: 28px;
   }

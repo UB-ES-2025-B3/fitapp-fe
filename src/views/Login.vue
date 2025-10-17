@@ -115,8 +115,8 @@ const validatePassword = () => {
     return false
   }
 
-  if (formData.value.password.length < 6) {
-    errors.value.password = 'Debe tener al menos 6 caracteres'
+  if (formData.value.password.length < 8) {
+    errors.value.password = 'Debe tener al menos 8 caracteres'
     return false
   }
 
@@ -207,7 +207,7 @@ h1 {
 
 /* 🖼️ Logo */
 .app-logo {
-  width: 200px; 
+  width: 200px;
   height: 200px;
   /*margin: 20px auto 0; */
   margin-top : 20px;
