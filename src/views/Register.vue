@@ -100,7 +100,7 @@ const session = useSessionStore();
 const router = useRouter();
 
 
-// ESTADO DEL FORMULARIO (datos reactivos)
+// Estado reactivo del formulario
 const formData = ref({
   email: '',
   password: '',
@@ -108,7 +108,7 @@ const formData = ref({
   acceptTerms: false
 })
 
-// ERRORES DE VALIDACIÓN
+// Errores y estados UI
 const errors = ref({
   email: '',
   password: '',
@@ -119,8 +119,9 @@ const errors = ref({
 const isLoading = ref(false)
 const submitError = ref('')
 
-// VALIDACIONES INDIVIDUALES
+// Validaciones individuales (breves)
 const validateEmail = () => {
+  // Comprueba presencia y formato básico
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
   if (!formData.value.email) {
@@ -138,6 +139,7 @@ const validateEmail = () => {
 }
 
 const validatePassword = () => {
+  // Comprueba longitud mínima
   if (!formData.value.password) {
     errors.value.password = 'La contraseña es obligatoria'
     return false
@@ -159,6 +161,7 @@ const validatePassword = () => {
 }
 
 const validateConfirmPassword = () => {
+  // Confirma que coincidan password y confirmPassword
   if (!formData.value.confirmPassword) {
     errors.value.confirmPassword = 'Debes confirmar la contraseña'
     return false
@@ -173,7 +176,7 @@ const validateConfirmPassword = () => {
   return true
 }
 
-// COMPUTED: Validez del formulario completo
+// Computed para permitir botón submit
 const isFormValid = computed(() => {
   // Todos los campos deben estar llenos
   const allFieldsFilled =
@@ -195,7 +198,12 @@ const isFormValid = computed(() => {
   return allFieldsFilled && noErrors && passwordsMatch
 })
 
-// SUBMIT DEL FORMULARIO
+// Manejo del submit:
+// 1) validar campos
+// 2) llamar registerUser en el backend
+// 3) normalizar campo profileExists que pueda venir en la respuesta
+// 4) persistir token + profileExists en el store (session.setSession)
+// 5) redirigir según profileExists (onboarding o home)
 const handleSubmit = async () => {
   // Validar todo antes de enviar
   const emailValid = validateEmail()
@@ -219,20 +227,34 @@ const handleSubmit = async () => {
     }
 
     const response = await registerUser(payload)
-    session.setSession(response.token, response.profileExists);
-    console.log(session.token)
-    router.push("/OnboardingProfile");
+
+    // Normalizar campo que puede venir como profileExists o profileComplete
+    const profileComplete = response.profileExists ?? response.profileComplete ?? false
+    const token = response.token ?? response.accessToken ?? null
+
+    if (!token) {
+      throw new Error('Respuesta inválida del servidor: falta token')
+    }
+
+    // Guardar token y estado de perfil en el store
+    session.setSession(token, profileComplete)
+
+    // Redirigir según el estado del perfil
+    // Si esta registrado y no tiene perfil completo, va a onboarding
+    // Si tiene perfil completo, va al home/
+    if (profileComplete) {
+      await router.push({ name: 'home' })
+    } else {
+      await router.push({ name: 'OnboardingProfile' })
+    }
 
     alert('¡Registro exitoso!')
     console.log('Usuario creado:', response)
 
-    // Opcional: redirigir al login / O MEJOR REDIRIGIR AL PROFILE, PERO YA LO DECIDIRÉ.
-    // router.push('/login')
-
   } catch (error) {
     // ERROR
-    console.error('Error al registrar:', error)
     submitError.value = error.response?.data?.message || 'Error al crear la cuenta.'
+    console.error('Register error', error)
   } finally {
     isLoading.value = false
   }
