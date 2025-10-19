@@ -79,6 +79,7 @@ import { useSessionStore } from "@/stores/session.js";
 const session = useSessionStore();
 const router = useRouter();
 
+// Form state
 const formData = ref({
   email: '',
   password: ''
@@ -92,6 +93,7 @@ const errors = ref({
 const isLoading = ref(false)
 const submitError = ref('')
 
+// Validaciones
 const validateEmail = () => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -133,6 +135,11 @@ const isFormValid = computed(() => {
   )
 })
 
+
+// handleSubmit:
+// 1) validar campos
+// 2) llamar loginUser -> obtener token (y, si viene, flag profileExists/profileComplete)
+// 3) persistir token + profileExists en el store y redirigir según ese valor
 const handleSubmit = async () => {
   const emailValid = validateEmail()
   const passwordValid = validatePassword()
@@ -148,11 +155,23 @@ const handleSubmit = async () => {
       password: formData.value.password
     });
 
-    // Guarda el token (ya se guarda en authService)
-    console.log("Login exitoso. Token:", response.token);
+    // Normalizar nombre del campo que indica perfil completo
+    const profileComplete = response.profileExists ?? response.profileComplete ?? false
+    const token = response.token ?? response.accessToken ?? null
 
-    alert("¡Inicio de sesión exitoso!");
-    //router.push("/dashboard"); // redirige donde tú quieras
+    if (!token) {
+      throw new Error('Respuesta inválida del servidor: falta token')
+    }
+
+    // Guardar token y estado de perfil en el store (y localStorage via action)
+    session.setSession(token, profileComplete)
+
+    // Redirigir según estado del perfil
+    if (profileComplete) {
+      await router.push({ name: 'home' })
+    } else {
+      await router.push({ name: 'OnboardingProfile' })
+    }
 
   } catch (error) {
     // Error en el submit

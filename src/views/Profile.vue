@@ -1,0 +1,394 @@
+<template>
+  <div class="profile-page">
+    <div class="profile-grid">
+      <section class="card profile-card">
+        <header class="card-header">
+          <h2>Mi Perfil</h2>
+          <p class="muted">Edita tu información personal</p>
+        </header>
+
+        <form @submit.prevent="saveProfile" class="form" novalidate>
+          <div class="row">
+            <label class="field">
+              <span>Nombre</span>
+              <input v-model="form.firstName" type="text" placeholder="Nombre" />
+              <small v-if="errors.firstName" class="error">{{ errors.firstName }}</small>
+            </label>
+
+            <label class="field">
+              <span>Apellido</span>
+              <input v-model="form.lastName" type="text" placeholder="Apellido" />
+              <small v-if="errors.lastName" class="error">{{ errors.lastName }}</small>
+            </label>
+          </div>
+
+          <label class="field">
+            <span>Fecha de nacimiento</span>
+            <input v-model="form.birthDate" type="date" />
+            <small v-if="errors.birthDate" class="error">{{ errors.birthDate }}</small>
+          </label>
+
+          <div class="row">
+            <label class="field">
+              <span>Altura (cm)</span>
+              <input v-model.number="form.heightCm" type="number" min="50" max="250" step="0.1" />
+              <small v-if="errors.heightCm" class="error">{{ errors.heightCm }}</small>
+            </label>
+
+            <label class="field">
+              <span>Peso (kg)</span>
+              <input v-model.number="form.weightKg" type="number" min="30" max="300" step="0.1" />
+              <small v-if="errors.weightKg" class="error">{{ errors.weightKg }}</small>
+            </label>
+          </div>
+
+          <div class="actions">
+            <button type="submit" class="btn" :disabled="saving">
+              <span v-if="saving">Guardando...</span>
+              <span v-else>Guardar cambios</span>
+            </button>
+
+            <button type="button" class="btn ghost" @click="resetToLoaded" :disabled="saving">
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card password-card">
+        <header class="card-header">
+          <h2>Cambiar contraseña</h2>
+          <p class="muted">Actualiza tu contraseña de acceso</p>
+        </header>
+
+        <form @submit.prevent="changePassword" class="form" novalidate>
+          <label class="field">
+            <span>Contraseña actual</span>
+            <input v-model="pwd.current" type="password" />
+            <small v-if="pwdErrors.current" class="error">{{ pwdErrors.current }}</small>
+          </label>
+
+          <label class="field">
+            <span>Nueva contraseña</span>
+            <input v-model="pwd.new" type="password" />
+            <small v-if="pwdErrors.new" class="error">{{ pwdErrors.new }}</small>
+          </label>
+
+          <label class="field">
+            <span>Confirmar nueva</span>
+            <input v-model="pwd.confirm" type="password" />
+            <small v-if="pwdErrors.confirm" class="error">{{ pwdErrors.confirm }}</small>
+          </label>
+
+          <div class="actions">
+            <button type="submit" class="btn" :disabled="changingPwd">
+              <span v-if="changingPwd">Procesando...</span>
+              <span v-else>Cambiar contraseña</span>
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from "vue";
+import { useSessionStore } from "@/stores/session.js";
+import { getProfile, updateProfile } from "@/services/authService.js";
+import { useRouter } from "vue-router";
+
+const session = useSessionStore();
+const router = useRouter();
+
+// UI states
+const loading = ref(false);
+const saving = ref(false);
+const changingPwd = ref(false);
+
+// Guardar datos leídos del servidor para poder resetear el formulario
+const loaded = ref(null);
+
+// Form model (mapea la shape de la API: firstName,lastName,birthDate,heightCm,weightKg)
+const form = ref({
+  firstName: "",
+  lastName: "",
+  birthDate: "", // yyyy-mm-dd
+  heightCm: null,
+  weightKg: null,
+});
+
+const errors = ref({
+  firstName: "",
+  lastName: "",
+  birthDate: "",
+  heightCm: "",
+  weightKg: "",
+});
+
+// Campos UI para cambiar contraseña (solo UI, sin API aún)
+const pwd = ref({
+  current: "",
+  new: "",
+  confirm: "",
+});
+
+const pwdErrors = ref({
+  current: "",
+  new: "",
+  confirm: "",
+});
+
+
+// Carga inicial del perfil:
+//  - llama GET /profiles/me
+//  - si 200: setea datos y marca profileExists = true en el store
+//  - si 404: marca profileExists = false (no existe perfil aún)
+//  - otros errores se loguean
+const loadProfile = async () => {
+  loading.value = true;
+  try {
+    const data = await getProfile();
+    loaded.value = {
+      firstName: data.firstName ?? "",
+      lastName: data.lastName ?? "",
+      birthDate: data.birthDate ?? "",
+      heightCm: data.heightCm ?? null,
+      weightKg: data.weightKg ?? null,
+    };
+    Object.assign(form.value, { ...loaded.value });
+
+    // Backend devolvió perfil -> persistir flag en el store
+    session.setSession(session.token, true);
+  } catch (err) {
+    const status = err.response?.status ?? err.status;
+    if (status === 404) {
+      // No hay perfil: marcar en el store para que los guards redirijan a onboarding
+      session.setSession(session.token, false);
+      loaded.value = null;
+    } else {
+      console.error("Error cargando perfil", err);
+    }
+  } finally {
+    loading.value = false;
+  }
+};
+
+onMounted(() => {
+  loadProfile();
+});
+
+// Validación local del formulario antes de enviar PUT
+const validateProfile = () => {
+  let ok = true;
+  errors.value = {
+    firstName: "",
+    lastName: "",
+    birthDate: "",
+    heightCm: "",
+    weightKg: "",
+  };
+
+  if (!form.value.firstName || !form.value.firstName.trim()) {
+    errors.value.firstName = "El nombre es obligatorio.";
+    ok = false;
+  }
+  if (!form.value.lastName || !form.value.lastName.trim()) {
+    errors.value.lastName = "El apellido es obligatorio.";
+    ok = false;
+  }
+  if (!form.value.birthDate) {
+    errors.value.birthDate = "La fecha de nacimiento es obligatoria.";
+    ok = false;
+  } else {
+    // Comprobar edad mínima (10 años)
+    const birth = new Date(form.value.birthDate);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    if (isNaN(age) || age < 10) {
+      errors.value.birthDate = "Debes tener al menos 10 años.";
+      ok = false;
+    }
+  }
+
+  if (form.value.heightCm == null || form.value.heightCm < 50 || form.value.heightCm > 250) {
+    errors.value.heightCm = "Altura entre 50 y 250 cm.";
+    ok = false;
+  }
+
+  if (form.value.weightKg == null || form.value.weightKg < 30 || form.value.weightKg > 300) {
+    errors.value.weightKg = "Peso entre 30 y 300 kg.";
+    ok = false;
+  }
+
+  return ok;
+};
+
+// Guardar cambios del perfil:
+//  - validar localmente
+//  - llamar PUT /profiles/me (updateProfile)
+//  - persistir profileExists = true en el store
+//  - actualizar el modelo local con la respuesta si viene
+const saveProfile = async () => {
+  if (!validateProfile()) return;
+  saving.value = true;
+  try {
+    const payload = {
+      firstName: form.value.firstName,
+      lastName: form.value.lastName,
+      birthDate: form.value.birthDate,
+      heightCm: Number(form.value.heightCm),
+      weightKg: Number(form.value.weightKg),
+    };
+
+    const saved = await updateProfile(payload);
+
+    // Asegurar que el store refleje que el perfil existe
+    session.setSession(session.token, true);
+
+    // Actualizar modelo con la respuesta del backend (si aplica)
+    loaded.value = {
+      firstName: saved.firstName ?? payload.firstName,
+      lastName: saved.lastName ?? payload.lastName,
+      birthDate: saved.birthDate ?? payload.birthDate,
+      heightCm: saved.heightCm ?? payload.heightCm,
+      weightKg: saved.weightKg ?? payload.weightKg,
+    };
+    Object.assign(form.value, { ...loaded.value });
+
+    alert("Perfil guardado correctamente.");
+  } catch (err) {
+    console.error("Error guardando perfil", err);
+    alert(err.response?.data?.message || err.message || "Error al guardar perfil.");
+  } finally {
+    saving.value = false;
+  }
+};
+
+// Resetear formulario a los valores cargados del servidor
+const resetToLoaded = () => {
+  if (loaded.value) Object.assign(form.value, { ...loaded.value });
+  errors.value = {
+    firstName: "",
+    lastName: "",
+    birthDate: "",
+    heightCm: "",
+    weightKg: "",
+  };
+};
+
+// Validación de la UI de cambio de contraseña (solo diseño por ahora)
+const validatePwd = () => {
+  pwdErrors.value = { current: "", new: "", confirm: "" };
+  let ok = true;
+  if (!pwd.value.current) {
+    pwdErrors.value.current = "Contraseña actual requerida.";
+    ok = false;
+  }
+  if (!pwd.value.new || pwd.value.new.length < 8) {
+    pwdErrors.value.new = "Mínimo 8 caracteres.";
+    ok = false;
+  }
+  if (pwd.value.new !== pwd.value.confirm) {
+    pwdErrors.value.confirm = "Las contraseñas no coinciden.";
+    ok = false;
+  }
+  return ok;
+};
+
+// Cambio de contraseña: no hay API aún, se simula el flujo UI
+const changePassword = async () => {
+  // No hay API aún: mantenemos diseño y validación, simulamos resultado localmente.
+  if (!validatePwd()) return;
+  changingPwd.value = true;
+  try {
+    // Simular proceso breve
+    await new Promise((r) => setTimeout(r, 700));
+    // Limpiar campos
+    pwd.value.current = "";
+    pwd.value.new = "";
+    pwd.value.confirm = "";
+    alert("Cambio de contraseña: funcionalidad no disponible en el backend. Diseño mantenido.");
+  } catch (err) {
+    console.error("Error simulando cambio de contraseña", err);
+    alert("Error al procesar cambio de contraseña.");
+  } finally {
+    changingPwd.value = false;
+  }
+};
+</script>
+
+<style scoped>
+.profile-page {
+  padding: 28px 20px;
+  min-height: calc(100vh - 70px);
+  display: flex;
+  justify-content: center;
+  background: #fafafa;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 20px;
+  width: 100%;
+  max-width: 1100px;
+}
+
+.card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 22px;
+  box-shadow: 0 8px 30px rgba(12, 12, 12, 0.06);
+  border: 1px solid #eee;
+}
+
+.card-header h2 { margin: 0; font-size: 20px; }
+.muted { margin: 6px 0 0; color: #666; font-size: 13px; }
+
+.form { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+
+.row { display: flex; gap: 12px; }
+.row .field { flex: 1; }
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field span { font-weight: 600; color: #111; font-size: 14px; }
+.field input {
+  padding: 12px 14px;
+  border: 1.5px solid #e6e6e6;
+  border-radius: 10px;
+  font-size: 15px;
+  background: #fff;
+}
+.field input:focus { outline: none; border-color: #000; background: #fbfbfb; }
+
+.error { color: #c53030; font-size: 13px; margin-top: 4px; }
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.btn {
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: #000;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+}
+.btn.ghost {
+  background: transparent;
+  color: #333;
+  border: 1px solid #e6e6e6;
+}
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+@media (max-width: 920px) {
+  .profile-grid { grid-template-columns: 1fr; }
+}
+</style>

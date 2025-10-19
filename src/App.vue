@@ -1,86 +1,68 @@
 <template>
   <div id="app">
-    <!-- Navbar: se muestra en todas las páginas -->
-    <nav class="navbar" v-if="showNavbar">
+    <!-- NAVBAR -->
+    <header v-if="!hideNav" class="navbar">
       <div class="nav-container">
-        <!-- Logo/Nombre de la app -->
-        <router-link to="/" class="logo"> <img src="../public/logo_principal.webp"/></router-link>
+        <router-link to="/" class="logo">
+          <img src="/logo_secundario.webp" alt="logo" />
+          FitApp
+        </router-link>
 
-        <!-- Links de navegación -->
-        <div class="nav-links">
-          <!-- Si NO está logueado -->
-          <template v-if="!isAuthenticated">
-            <router-link to="/" class="nav-link">
-              Inicio
-            </router-link>
-            <router-link to="/login" class="nav-link">
-              Iniciar Sesión
-            </router-link>
-            <router-link to="/register" class="nav-link btn-primary">
-              Registrarse
-            </router-link>
+        <nav class="nav-links">
+          <router-link class="nav-link" to="/" exact>Inicio</router-link>
+
+          <template v-if="isAuthenticated">
+            <router-link
+              v-if="session.profileExists"
+              class="nav-link"
+              to="/profile"
+            >Mi Perfil</router-link>
+
+            <router-link
+              v-else
+              class="nav-link"
+              to="/onboarding/profile"
+            >Completar perfil</router-link>
+
+            <button class="nav-link btn-logout" @click="logout">Cerrar sesión</button>
           </template>
 
-          <!-- Si está logueado -->
           <template v-else>
-            <router-link to="/dashboard" class="nav-link">
-              Dashboard
-            </router-link>
-            <button @click="logout" class="nav-link btn-logout">
-              Cerrar Sesión
-            </button>
+            <router-link class="nav-link" to="/login">Iniciar sesión</router-link>
+            <router-link class="nav-link btn-primary" to="/register">Crear cuenta</router-link>
           </template>
-        </div>
+        </nav>
       </div>
-    </nav>
+    </header>
 
-    <!-- Contenido principal: aquí se renderiza cada vista -->
+    <!-- MAIN -->
     <main class="main-content">
       <router-view />
     </main>
 
-    <!-- Footer: se muestra en todas las páginas -->
-    <footer class="footer" v-if="showFooter">
-      <p>&copy; 2025 FitApp. Todos los derechos reservados.</p>
+    <!-- FOOTER -->
+    <footer v-if="!hideFooter" class="footer">
+      <p>© {{ new Date().getFullYear() }} FitApp — Todos los derechos reservados.</p>
     </footer>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useSessionStore } from '@/stores/session.js'
 
 const router = useRouter()
 const route = useRoute()
+const session = useSessionStore()
 
-// Estado de autenticación (simulado)
-// En producción, esto vendría de un store (Pinia/Vuex)
-const isAuthenticated = ref(false)
+const isAuthenticated = computed(() => !!session.token)
+const hideNav = computed(() => route.matched.some(r => r.meta?.hideNav))
+const hideFooter = computed(() => route.matched.some(r => r.meta?.hideFooter))
 
-// Control de navegación y footer
-// Ocultar navbar/footer en ciertas páginas
-const showNavbar = computed(() => {
-  // Puedes ocultar la navbar en páginas específicas
-  return true
-})
-
-const showFooter = computed(() => {
-  // Puedes ocultar el footer en páginas específicas
-  const hideFooterRoutes = ['/dashboard']
-  return !hideFooterRoutes.includes(route.path)
-})
-
-// Cerrar sesión
 const logout = () => {
-  isAuthenticated.value = false
-  localStorage.removeItem('token') // Limpiar token
-  router.push('/login')
-}
-
-// Simular login exitoso (llamar desde LoginView)
-// En producción, esto se manejaría con un store global
-window.loginSuccess = () => {
-  isAuthenticated.value = true
+  session.clearSession()
+  router.push({ name: 'login' })
 }
 </script>
 
