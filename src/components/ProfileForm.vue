@@ -110,11 +110,17 @@ const validate = () => {
   if (!form.value.firstName || !form.value.firstName.trim()) {
     errors.value.firstName = 'El nombre es obligatorio.'
     ok = false
+  } else if (form.value.firstName.length > 100) {
+    errors.value.firstName = 'El nombre es muy largo.'
+    ok = false
   }
 
   // Apellido requerido
   if (!form.value.lastName || !form.value.lastName.trim()) {
     errors.value.lastName = 'El apellido es obligatorio.'
+    ok = false
+  } else if (form.value.lastName.length > 100) {
+    errors.value.lastName = 'El apellido es muy largo.'
     ok = false
   }
 
