@@ -9,7 +9,7 @@ vi.mock('@/services/routesService', () => {
 })
 
 import Routes from '@/views/Routes.vue'
-import { getRoutes } from '@/services/routesService'
+import { getRoutes, deleteRoute } from '@/services/routesService'
 
 // Helper para leer props desde un stub en distintas versiones de VTU
 // Helper para leer props desde un stub en distintas versiones de VTU
@@ -132,6 +132,66 @@ describe('Routes.vue — Listado de rutas (criterios de aceptación)', () => {
 
     expect(wrapper.find('.error-box').exists()).toBe(true)
     expect(wrapper.find('.error-box').text()).toContain('API error')
+  })
+
+  it('Borrar: confirma, llama a deleteRoute y recarga la lista', async () => {
+    // Primera llamada devuelve dos rutas; tras borrado devolverá una sola
+    getRoutes.mockResolvedValueOnce([
+      { id: 'r1', name: 'Ruta A', distanceMeters: 1500 },
+      { id: 'r2', name: 'Ruta B', distanceMeters: 5230 }
+    ]).mockResolvedValueOnce([
+      { id: 'r2', name: 'Ruta B', distanceMeters: 5230 }
+    ])
+
+  deleteRoute.mockResolvedValue({})
+
+  const origConfirm = globalThis.confirm
+  globalThis.confirm = () => true // aceptar borrado
+
+    const wrapper = mount(Routes, { global: { stubs: ['router-link'] } })
+    // esperar carga inicial
+    await Promise.resolve()
+    await wrapper.vm.$nextTick()
+
+    const rowsBefore = wrapper.findAll('.route-row')
+    expect(rowsBefore.length).toBe(2)
+
+    // Pulsar el botón borrar de la primera fila
+    const firstDelete = rowsBefore[0].find('button.btn.danger')
+    await firstDelete.trigger('click')
+
+    // esperar que deleteRoute y recarga se procesen
+    await Promise.resolve()
+    await wrapper.vm.$nextTick()
+
+  expect(deleteRoute).toHaveBeenCalledWith('r1')
+
+    const rowsAfter = wrapper.findAll('.route-row')
+    expect(rowsAfter.length).toBe(1)
+
+  globalThis.confirm = origConfirm
+  })
+
+  it('Borrar: si el usuario cancela, no llama a deleteRoute', async () => {
+    getRoutes.mockResolvedValue([
+      { id: 'r1', name: 'Ruta A', distanceMeters: 1500 }
+    ])
+
+  deleteRoute.mockReset()
+
+  const origConfirm = globalThis.confirm
+  globalThis.confirm = () => false // cancelar borrado
+
+    const wrapper = mount(Routes, { global: { stubs: ['router-link'] } })
+    await Promise.resolve()
+    await wrapper.vm.$nextTick()
+
+    const btn = wrapper.find('button.btn.danger')
+    await btn.trigger('click')
+
+  expect(deleteRoute).not.toHaveBeenCalled()
+
+  globalThis.confirm = origConfirm
   })
 })
 
