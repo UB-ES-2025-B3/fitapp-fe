@@ -34,13 +34,16 @@
                 <div class="row-actions">
                   <router-link class="btn ghost" :to="{ name: 'RoutesShow', params: { id: r.id } }">Ver</router-link>
                   <router-link class="btn ghost" :to="{ name: 'RoutesEdit', params: { id: r.id } }">Editar</router-link>
-                  <button class="btn danger" @click="confirmDelete(r.id)" :disabled="deleting === r.id">
+                  <button class="btn danger" @click="openConfirm(r.id)" :disabled="deleting === r.id">
                     <span v-if="deleting === r.id">Borrando...</span>
                     <span v-else>Borrar</span>
                   </button>
                 </div>
               </li>
             </ul>
+            <!-- Confirm modal utilizado para confirmar borrado -->
+            <ConfirmModal :visible="showConfirm" :message="confirmMessage" @confirm="onConfirm" @cancel="onCancel" />
+            <div v-if="toastVisible" class="toast">{{ toastMessage }}</div>
           </div>
         </div>
       </section>
@@ -50,7 +53,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-// Give component a multi-word name to satisfy linter
+import ConfirmModal from '@/components/ConfirmModal.vue'
 defineOptions({ name: 'RoutesList' })
 import { getRoutes, deleteRoute } from '@/services/routesService.js'
 
@@ -79,25 +82,52 @@ const formatKm = (meters) => {
   return `${km.toFixed(2)} km`
 }
 
-const confirmDelete = async (id) => {
-  const ok = confirm('¿Borrar esta ruta? Esta acción no tiene deshacer.')
-  if (!ok) return
+// Modal-based delete
+const showConfirm = ref(false)
+const confirmTarget = ref(null)
+const confirmMessage = ref('¿Borrar esta ruta? Esta acción no tiene deshacer.')
 
+const openConfirm = (id) => {
+  confirmTarget.value = id
+  showConfirm.value = true
+}
+
+const onConfirm = async () => {
+  const id = confirmTarget.value
+  showConfirm.value = false
+  if (!id) return
   deleting.value = id
   try {
     await deleteRoute(id)
-    // recargar lista
-    await load()
+      // recargar lista para reflejar hard/soft delete según backend
+      await load()
+      // mostrar toast de éxito breve
+      showToast('Ruta borrada correctamente')
   } catch (err) {
-    alert(err.response?.data?.message || err.message || 'Error borrando ruta')
+    error.value = err.response?.data?.message || err.message || 'Error borrando ruta'
   } finally {
     deleting.value = null
+    confirmTarget.value = null
   }
+}
+
+const onCancel = () => {
+  showConfirm.value = false
+  confirmTarget.value = null
 }
 
 onMounted(() => {
   load()
 })
+
+// Toast simple
+const toastMessage = ref('')
+const toastVisible = ref(false)
+function showToast(msg, ms = 1800) {
+  toastMessage.value = msg
+  toastVisible.value = true
+  setTimeout(() => { toastVisible.value = false }, ms)
+}
 </script>
 
 <style scoped>
