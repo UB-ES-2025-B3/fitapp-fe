@@ -21,6 +21,17 @@ describe('Guards del router (auth + onboarding)', () => {
     expect(name).toBe('login')
   })
 
+  it('Usuario no autenticado → redirige a login al intentar /routes/:id/edit', async () => {
+    vi.resetModules()
+    localStorage.removeItem('token')
+    localStorage.setItem('profileExists', 'false')
+
+    const { default: router } = await import('@/router/index.js')
+    await router.push('/routes/abc/edit')
+    await router.isReady()
+    expect(router.currentRoute.value.name).toBe('login')
+  })
+
   it('Usuario autenticado sin perfil → forzar onboarding', async () => {
     vi.resetModules()
     // Usuario autenticado pero sin profileExists
