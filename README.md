@@ -93,3 +93,14 @@ Variables de entorno útiles
 - `VITE_GOOGLE_MAPS_API_KEY=<tu_key>` — para que `RoutesNew.vue` cargue Google Maps en vez del fallback SVG. No subas esta clave al repo; usa `.env.local` y restringe por host en Google Cloud.
 - Para simular errores 4xx/5xx o latencias, MSW es muy conveniente (`ctx.status(500)`, `ctx.delay(1200)`).
 
+### Construir y ejecutar el front
+Para pruebas en local, construimos el front en el puerto 8082 y lo conectamos a la API del puerto 8080:
+
+```sh
+docker build --build-arg VITE_API_URL=http://localhost:8080 -t fitapp-frontend-local .
+```
+
+```sh
+docker run -p 8082:80 --rm fitapp-frontend-local    
+```
+
