@@ -1,0 +1,68 @@
+# Nombre del workflow
+name: Desplegar Frontend en Azure App Service
+
+# Triggers
+on:
+  # 1. Cuando se mergea a 'main'
+  push:
+    branches:
+      - main
+
+  # 2. Cuando se ABRE o ACTUALIZA un PR hacia 'main'
+  pull_request:
+    branches:
+      - main
+
+  # 3. Trigger MANUAL:
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    # Usamos el sistema operativo estándar para builds
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Descarga el código del repositorio
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      # 2. Login en Azure (para el despliegue del App Service)
+      # Usa el JSON del Service Principal que guardamos como 'AZURE_CREDENTIALS'
+      - name: 'Login en Azure'
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # 3. Login en el ACR (para subir la imagen Docker)
+      # Esta acción usa las credenciales de Azure (del paso 2) para loguearse en el ACR
+      - name: 'Login en Azure Container Registry (ACR)'
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+
+      # 4. Construye y Sube la imagen Docker al ACR
+      # - Construye usando el Dockerfile de la raíz
+      # - Inyecta el Secret VITE_API_URL en el build de Docker
+      - name: Construir y subir la imagen Docker (Frontend)
+        run: |
+          docker build . \
+            --build-arg VITE_API_URL=${{ secrets.VITE_API_URL }} \
+            -t ${{ secrets.ACR_LOGIN_SERVER }}/fitapp-frontend:${{ github.sha }}
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/fitapp-frontend:${{ github.sha }} # (AC6)
+
+      # 5. Despliega en Azure App Service
+      # App Service usa la nueva imagen que acabamos de subir
+      - name: 'Desplegar en Azure App Service (Frontend)'
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'fitappweb' 
+
+          # La imagen exacta que debe usar
+          images: '${{ secrets.ACR_LOGIN_SERVER }}/fitapp-frontend:${{ github.sha }}'
+
+      # 6. Logout de Azure por seguridad
+      - name: Logout de Azure
+        if: always() 
+        run: |
+          docker logout ${{ secrets.ACR_LOGIN_SERVER }}
+          az logout
