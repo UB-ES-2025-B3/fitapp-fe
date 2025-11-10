@@ -164,8 +164,193 @@ function showToast(msg, ms = 1800) {
 </script>
 
 <style scoped>
-.page-container { padding: 28px 20px; display:flex; justify-content:center; }
-.card { width:100%; max-width:760px; background:#fff; border-radius:12px; padding:18px; border:1px solid #eee; box-shadow:0 8px 30px rgba(12,12,12,0.05);}
-.muted { color:#666; margin-top:6px }
-.btn { padding:10px 14px; border-radius:10px; background:#000; color:#fff; border:none; cursor:pointer; text-decoration:none }
+.page-container { 
+  padding: 28px 20px; 
+  display: flex; 
+  justify-content: center; 
+}
+
+.card { 
+  width: 100%; 
+  max-width: 760px; 
+  background: #fff; 
+  border-radius: 12px; 
+  padding: 24px; 
+  border: 1px solid #eee; 
+  box-shadow: 0 8px 30px rgba(12, 12, 12, 0.05);
+}
+
+.card-header h1 {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+}
+
+.muted { 
+  color: #666; 
+  margin: 0;
+  font-size: 14px;
+}
+
+.card-body {
+  margin-top: 24px;
+}
+
+.card-body h2 {
+  margin: 0 0 16px 0;
+  font-size: 20px;
+  color: #111;
+}
+
+.card-body > div > p {
+  margin: 0 0 20px 0;
+  font-size: 15px;
+  color: #555;
+}
+
+.center {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+.form-row { 
+  margin-bottom: 20px; 
+  display: flex; 
+  flex-direction: column;
+}
+
+.form-row label { 
+  font-weight: 600; 
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #333;
+}
+
+.map-area { 
+  border-radius: 10px; 
+  overflow: hidden; 
+  border: 1px solid #e6edf2; 
+  background: linear-gradient(180deg, #f8fbfd, #f6f9fb); 
+  height: 400px;
+  width: 100%;
+  position: relative;
+}
+
+.map-area svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.coords { 
+  display: flex; 
+  gap: 20px; 
+  margin-top: 12px; 
+  color: #555;
+  font-size: 13px;
+}
+
+.coords strong {
+  color: #000;
+  font-weight: 600;
+}
+
+.actions-row { 
+  display: flex; 
+  gap: 12px; 
+  align-items: center;
+  margin-top: 24px;
+}
+
+.btn { 
+  padding: 11px 18px; 
+  border-radius: 8px; 
+  background: #000; 
+  color: #fff; 
+  border: none; 
+  cursor: pointer; 
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  display: inline-block;
+}
+
+.btn:hover:not(:disabled) {
+  background: #333;
+  transform: translateY(-1px);
+}
+
+.btn:disabled {
+  background: #999;
+  cursor: not-allowed;
+}
+
+.btn.ghost { 
+  background: transparent; 
+  color: #333; 
+  border: 1px solid #ddd;
+}
+
+.btn.ghost:hover {
+  background: #f5f5f5;
+  border-color: #999;
+}
+
+.btn.danger {
+  background: #c53030;
+}
+
+.btn.danger:hover:not(:disabled) {
+  background: #9b2c2c;
+}
+
+.error-box { 
+  background: #fef2f2; 
+  color: #c53030; 
+  padding: 14px; 
+  border-radius: 8px; 
+  border: 1px solid #fecaca;
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+.toast { 
+  position: fixed; 
+  right: 20px; 
+  bottom: 20px; 
+  background: #2f855a; 
+  color: #fff; 
+  padding: 12px 16px; 
+  border-radius: 8px; 
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+  font-size: 14px;
+  z-index: 1000;
+  font-weight: 500;
+}
+
+@media (max-width: 720px) {
+  .card {
+    padding: 20px;
+  }
+
+  .coords { 
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .actions-row {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .btn {
+    width: 100%;
+    text-align: center;
+  }
+  
+  .map-area {
+    height: 300px;
+  }
+}
 </style>
