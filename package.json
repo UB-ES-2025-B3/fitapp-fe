@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "test": "vitest",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint . --fix",
@@ -23,11 +24,14 @@
     "@eslint/js": "^9.33.0",
     "@vitejs/plugin-vue": "^6.0.1",
     "@vue/eslint-config-prettier": "^10.2.0",
+    "@vue/test-utils": "^2.4.0-alpha.2",
     "eslint": "^9.33.0",
     "eslint-plugin-vue": "~10.4.0",
     "globals": "^16.3.0",
+    "jsdom": "^27.1.0",
     "prettier": "3.6.2",
     "vite": "^7.1.7",
-    "vite-plugin-vue-devtools": "^8.0.2"
+    "vite-plugin-vue-devtools": "^8.0.2",
+    "vitest": "^4.0.8"
   }
 }
