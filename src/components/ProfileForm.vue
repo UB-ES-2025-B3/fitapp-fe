@@ -29,8 +29,6 @@
             <option value="" disabled>Selecciona uno...</option>
             <option value="male">Masculino</option>
             <option value="female">Femenino</option>
-            <option value="other">Otro</option>
-            <option value="prefer_not_to_say">Prefiero no decirlo</option>
           </select>
           <span v-if="errors.gender" class="error">{{ errors.gender }}</span>
         </div>
