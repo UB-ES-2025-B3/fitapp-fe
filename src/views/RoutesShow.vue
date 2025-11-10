@@ -4,39 +4,27 @@
       <section class="card">
         <header class="card-header">
           <h1>Ver ruta</h1>
-          <p class="muted">Vista de detalle (pendiente de implementación)</p>
+          <p class="muted">Detalles de la ruta seleccionada</p>
         </header>
 
         <div class="card-body">
-          <!-- Mostrar algunos datos básicos de la ruta -->
           <div v-if="loading" class="center">Cargando...</div>
           <div v-else-if="error" class="error-box">{{ error }}</div>
           <div v-else>
             <h2>{{ routeData.name }}</h2>
             <p>Distancia: {{ formatKm(routeData.distanceMeters) }}</p>
+
             <div class="form-row">
-              <label>Mapa (inicio / fin)</label>
-              <div class="map-area" role="img" aria-label="Mapa de la ruta (solo lectura)">
-                <svg :width="mapW" :height="mapH" viewBox="0 0 1000 500">
-                  <rect x="0" y="0" width="1000" height="500" fill="#f6f9fb" stroke="#e6edf2" />
-                  <g v-if="startPoint">
-                    <circle :cx="startPoint.x" :cy="startPoint.y" r="8" fill="#2b6cb0" />
-                    <text :x="startPoint.x + 12" :y="startPoint.y + 4" font-size="14" fill="#2b6cb0">Inicio</text>
-                  </g>
-                  <g v-if="endPoint">
-                    <circle :cx="endPoint.x" :cy="endPoint.y" r="8" fill="#c53030" />
-                    <text :x="endPoint.x + 12" :y="endPoint.y + 4" font-size="14" fill="#c53030">Fin</text>
-                  </g>
-                  <g v-if="startPoint && endPoint">
-                    <line :x1="startPoint.x" :y1="startPoint.y" :x2="endPoint.x" :y2="endPoint.y" stroke="#777" stroke-dasharray="6 4" />
-                  </g>
-                </svg>
-              </div>
+              <label>Mapa de la ruta</label>
+              <!-- Reemplazado Canvas con Mapbox GL (solo lectura) -->
+              <div ref="mapContainer" class="map-area" role="img" aria-label="Mapa de la ruta (solo lectura)"></div>
+
               <div class="coords" style="margin-top:8px">
                 <div>Inicio: <strong v-if="startLatLng">{{ startLatLng.lat.toFixed(5) }}, {{ startLatLng.lng.toFixed(5) }}</strong><span v-else> — no disponible</span></div>
                 <div>Fin: <strong v-if="endLatLng">{{ endLatLng.lat.toFixed(5) }}, {{ endLatLng.lng.toFixed(5) }}</strong><span v-else> — no disponible</span></div>
               </div>
             </div>
+
             <div class="actions-row">
               <router-link class="btn ghost" :to="{ name: 'RoutesEdit', params: { id: routeData.id } }">Editar</router-link>
               <button class="btn danger" @click="openConfirm(routeData.id)" :disabled="deleting === routeData.id">Borrar</button>
@@ -44,7 +32,6 @@
             </div>
           </div>
 
-          <!-- Confirm modal para borrar desde detalle -->
           <ConfirmModal :visible="showConfirm" :message="confirmMessage" @confirm="onConfirm" @cancel="onCancel" />
           <div v-if="toastVisible" class="toast">{{ toastMessage }}</div>
         </div>
@@ -54,10 +41,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import ConfirmModal from '@/components/ConfirmModal.vue'
 import { getRoute, deleteRoute } from '@/services/routesService'
+import mapboxgl from 'mapbox-gl'
+import 'mapbox-gl/dist/mapbox-gl.css'
 
 defineOptions({ name: 'RoutesShow' })
 
@@ -70,22 +59,115 @@ const deleting = ref(null)
 const showConfirm = ref(false)
 const confirmTarget = ref(null)
 const confirmMessage = ref('¿Borrar esta ruta? Esta acción no tiene deshacer.')
-
-// Map helpers (same projection used in RoutesNew)
-const mapW = 1000
-const mapH = 500
-const BBOX = { north: 43.0, south: 36.0, west: -9.5, east: 3.5 }
+const mapContainer = ref(null)
 
 const startLatLng = ref(null)
 const endLatLng = ref(null)
-const startPoint = ref(null)
-const endPoint = ref(null)
 
-function latLngToPixel(ll) {
-  if (!ll) return null
-  const x = ((ll.lng - BBOX.west) / (BBOX.east - BBOX.west)) * mapW
-  const y = ((BBOX.north - ll.lat) / (BBOX.north - BBOX.south)) * mapH
-  return { x: Math.max(0, Math.min(mapW, x)), y: Math.max(0, Math.min(mapH, y)) }
+let map = null
+let startMarker = null
+let endMarker = null
+
+function initMap() {
+  if (!mapContainer.value) return
+
+  // En el entorno de test (vitest/jsdom) no intentamos inicializar Mapbox
+  // porque la librería intenta crear un contexto WebGL y falla en JSDOM.
+  if (import.meta?.env?.MODE === 'test') {
+    console.warn('[RoutesShow] skipping map init in test mode')
+    return
+  }
+
+  // Prefer any token already set on mapboxgl (main.js). Fall back to env vars.
+  const token = mapboxgl.accessToken || import.meta?.env?.VITE_MAPBOX_ACCESS_TOKEN || import.meta?.env?.VITE_MAPBOX_TOKEN || ''
+  console.log('[RoutesShow] initMap token (effective) =', token)
+  mapboxgl.accessToken = mapboxgl.accessToken || token
+  if (!mapboxgl.accessToken) {
+    console.error('[RoutesShow] Mapbox token missing at initMap — map will not be created')
+    return
+  }
+
+  map = new mapboxgl.Map({
+    container: mapContainer.value,
+    style: 'mapbox://styles/mapbox/streets-v12',
+    center: [2.1734, 41.3851], // Barcelona
+    zoom: 12
+  })
+
+  map.addControl(new mapboxgl.NavigationControl())
+}
+
+function loadMarkersOnMap() {
+  if (!map) return
+
+  if (startLatLng.value) {
+    const { lat, lng } = startLatLng.value
+    const el = document.createElement('div')
+    el.className = 'custom-marker-mapbox start-marker-mapbox'
+    el.innerHTML = '<div class="marker-pin-mapbox start-pin-mapbox"></div>'
+
+    startMarker = new mapboxgl.Marker({ element: el })
+      .setLngLat([lng, lat])
+      .setPopup(new mapboxgl.Popup({ offset: 25 }).setText('Inicio'))
+      .addTo(map)
+  }
+
+  if (endLatLng.value) {
+    const { lat, lng } = endLatLng.value
+    const el = document.createElement('div')
+    el.className = 'custom-marker-mapbox end-marker-mapbox'
+    el.innerHTML = '<div class="marker-pin-mapbox end-pin-mapbox"></div>'
+
+    endMarker = new mapboxgl.Marker({ element: el })
+      .setLngLat([lng, lat])
+      .setPopup(new mapboxgl.Popup({ offset: 25 }).setText('Fin'))
+      .addTo(map)
+  }
+
+  updateRouteLine()
+}
+
+function updateRouteLine() {
+  if (!map || !startLatLng.value || !endLatLng.value) return
+
+  if (map.getSource('route')) {
+    map.removeLayer('route')
+    map.removeSource('route')
+  }
+
+  map.addSource('route', {
+    type: 'geojson',
+    data: {
+      type: 'Feature',
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [startLatLng.value.lng, startLatLng.value.lat],
+          [endLatLng.value.lng, endLatLng.value.lat]
+        ]
+      }
+    }
+  })
+
+  map.addLayer({
+    id: 'route',
+    type: 'line',
+    source: 'route',
+    layout: {
+      'line-join': 'round',
+      'line-cap': 'round'
+    },
+    paint: {
+      'line-color': '#777',
+      'line-width': 3,
+      'line-dasharray': [2, 2]
+    }
+  })
+
+  const bounds = new mapboxgl.LngLatBounds()
+  bounds.extend([startLatLng.value.lng, startLatLng.value.lat])
+  bounds.extend([endLatLng.value.lng, endLatLng.value.lat])
+  map.fitBounds(bounds, { padding: 80 })
 }
 
 function extractLatLngs(r) {
@@ -108,12 +190,14 @@ async function load() {
     const id = route.params.id
     const r = await getRoute(id)
     routeData.value = r || {}
-    // Extract start/end coordinates (flexible field names) and compute pixel points for SVG
+
     const { s, e } = extractLatLngs(routeData.value)
     startLatLng.value = s || null
     endLatLng.value = e || null
-    startPoint.value = s ? latLngToPixel(s) : null
-    endPoint.value = e ? latLngToPixel(e) : null
+
+    if (map) {
+      loadMarkersOnMap()
+    }
   } catch (err) {
     error.value = err.response?.data?.message || err.message || 'Error cargando la ruta.'
   } finally {
@@ -133,7 +217,6 @@ const onConfirm = async () => {
   deleting.value = id
   try {
     await deleteRoute(id)
-    // éxito: mostrar toast y después redirigir para que el usuario lo vea
     showToast('Ruta borrada correctamente')
     setTimeout(() => { router.push({ name: 'RoutesList' }) }, 900)
   } catch (err) {
@@ -149,34 +232,47 @@ const onCancel = () => {
   confirmTarget.value = null
 }
 
-onMounted(() => {
-  load()
-})
-
-// Toast simple para confirmar acciones
 const toastMessage = ref('')
 const toastVisible = ref(false)
+
 function showToast(msg, ms = 1800) {
   toastMessage.value = msg
   toastVisible.value = true
   setTimeout(() => { toastVisible.value = false }, ms)
 }
+
+const loadRoute = async () => {
+  await load()
+}
+
+onMounted(() => {
+  initMap()
+  // cargar datos de la ruta para poblar la vista (y mostrar botón Borrar)
+  loadRoute()
+})
+
+onBeforeUnmount(() => {
+  if (map) {
+    map.remove()
+    map = null
+  }
+})
 </script>
 
 <style scoped>
-.page-container { 
-  padding: 28px 20px; 
-  display: flex; 
-  justify-content: center; 
+.page-container {
+  padding: 28px 20px;
+  display: flex;
+  justify-content: center;
 }
 
-.card { 
-  width: 100%; 
-  max-width: 760px; 
-  background: #fff; 
-  border-radius: 12px; 
-  padding: 24px; 
-  border: 1px solid #eee; 
+.card {
+  width: 100%;
+  max-width: 760px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  border: 1px solid #eee;
   box-shadow: 0 8px 30px rgba(12, 12, 12, 0.05);
 }
 
@@ -185,8 +281,8 @@ function showToast(msg, ms = 1800) {
   font-size: 24px;
 }
 
-.muted { 
-  color: #666; 
+.muted {
+  color: #666;
   margin: 0;
   font-size: 14px;
 }
@@ -213,39 +309,60 @@ function showToast(msg, ms = 1800) {
   color: #666;
 }
 
-.form-row { 
-  margin-bottom: 20px; 
-  display: flex; 
+.form-row {
+  margin-bottom: 20px;
+  display: flex;
   flex-direction: column;
 }
 
-.form-row label { 
-  font-weight: 600; 
+.form-row label {
+  font-weight: 600;
   margin-bottom: 8px;
   font-size: 14px;
   color: #333;
 }
 
-.map-area { 
-  border-radius: 10px; 
-  overflow: hidden; 
-  border: 1px solid #e6edf2; 
-  background: linear-gradient(180deg, #f8fbfd, #f6f9fb); 
-  height: 400px;
+/* Estilos para el contenedor de Mapbox */
+.map-area {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #e6edf2;
+  height: 450px;
   width: 100%;
   position: relative;
+  z-index: 1;
 }
 
-.map-area svg {
-  width: 100%;
-  height: 100%;
-  display: block;
+/* Estilos para marcadores personalizados de Mapbox */
+:global(.custom-marker-mapbox) {
+  cursor: pointer;
 }
 
-.coords { 
-  display: flex; 
-  gap: 20px; 
-  margin-top: 12px; 
+:global(.marker-pin-mapbox) {
+  width: 30px;
+  height: 30px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  position: relative;
+  cursor: pointer;
+}
+
+:global(.start-pin-mapbox) {
+  background: #2b6cb0;
+  border: 3px solid #fff;
+  box-shadow: 0 3px 10px rgba(43, 108, 176, 0.5);
+}
+
+:global(.end-pin-mapbox) {
+  background: #c53030;
+  border: 3px solid #fff;
+  box-shadow: 0 3px 10px rgba(197, 48, 48, 0.5);
+}
+
+.coords {
+  display: flex;
+  gap: 20px;
+  margin-top: 12px;
   color: #555;
   font-size: 13px;
 }
@@ -255,20 +372,20 @@ function showToast(msg, ms = 1800) {
   font-weight: 600;
 }
 
-.actions-row { 
-  display: flex; 
-  gap: 12px; 
+.actions-row {
+  display: flex;
+  gap: 12px;
   align-items: center;
   margin-top: 24px;
 }
 
-.btn { 
-  padding: 11px 18px; 
-  border-radius: 8px; 
-  background: #000; 
-  color: #fff; 
-  border: none; 
-  cursor: pointer; 
+.btn {
+  padding: 11px 18px;
+  border-radius: 8px;
+  background: #000;
+  color: #fff;
+  border: none;
+  cursor: pointer;
   text-decoration: none;
   font-size: 14px;
   font-weight: 600;
@@ -286,9 +403,9 @@ function showToast(msg, ms = 1800) {
   cursor: not-allowed;
 }
 
-.btn.ghost { 
-  background: transparent; 
-  color: #333; 
+.btn.ghost {
+  background: transparent;
+  color: #333;
   border: 1px solid #ddd;
 }
 
@@ -305,24 +422,24 @@ function showToast(msg, ms = 1800) {
   background: #9b2c2c;
 }
 
-.error-box { 
-  background: #fef2f2; 
-  color: #c53030; 
-  padding: 14px; 
-  border-radius: 8px; 
+.error-box {
+  background: #fef2f2;
+  color: #c53030;
+  padding: 14px;
+  border-radius: 8px;
   border: 1px solid #fecaca;
   margin-top: 16px;
   font-size: 14px;
 }
 
-.toast { 
-  position: fixed; 
-  right: 20px; 
-  bottom: 20px; 
-  background: #2f855a; 
-  color: #fff; 
-  padding: 12px 16px; 
-  border-radius: 8px; 
+.toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  background: #2f855a;
+  color: #fff;
+  padding: 12px 16px;
+  border-radius: 8px;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
   font-size: 14px;
   z-index: 1000;
@@ -334,23 +451,23 @@ function showToast(msg, ms = 1800) {
     padding: 20px;
   }
 
-  .coords { 
+  .coords {
     flex-direction: column;
     gap: 8px;
   }
-  
+
   .actions-row {
     flex-direction: column;
     width: 100%;
   }
-  
+
   .btn {
     width: 100%;
     text-align: center;
   }
-  
+
   .map-area {
-    height: 300px;
+    height: 350px;
   }
 }
 </style>

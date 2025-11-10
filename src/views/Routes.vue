@@ -20,7 +20,10 @@
 
           <div v-else>
             <div v-if="routes.length === 0" class="empty-state">
-              <p>No hay rutas todavía.</p>
+              <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+                <p>No hay rutas todavía.</p>
+                <router-link class="btn" :to="{ name: 'RoutesNew' }">Crear ruta</router-link>
+              </div>
             </div>
 
             <ul v-else class="routes-list">
