@@ -22,11 +22,32 @@
             </label>
           </div>
 
+          <div class="row">
+            <label class="field">
+              <span>Fecha de nacimiento</span>
+              <input v-model="form.birthDate" type="date" />
+              <small v-if="errors.birthDate" class="error">{{ errors.birthDate }}</small>
+            </label>
+            
+            <label class="field">
+              <span>Género</span>
+              <select v-model="form.gender">
+                <option value="" disabled>Selecciona uno...</option>
+                <option value="male">Masculino</option>
+                <option value="female">Femenino</option>
+                <option value="other">Otro</option>
+                <option value="prefer_not_to_say">Prefiero no decirlo</option>
+              </select>
+              <small v-if="errors.gender" class="error">{{ errors.gender }}</small>
+            </label>
+          </div>
+
           <label class="field">
-            <span>Fecha de nacimiento</span>
-            <input v-model="form.birthDate" type="date" />
-            <small v-if="errors.birthDate" class="error">{{ errors.birthDate }}</small>
+            <span>Zona Horaria (detectada)</span>
+            <input v-model="form.timezone" type="text" readonly disabled />
+            <small v-if="errors.timezone" class="error">{{ errors.timezone }}</small>
           </label>
+
 
           <div class="row">
             <label class="field">
@@ -114,6 +135,8 @@ const form = ref({
   firstName: "",
   lastName: "",
   birthDate: "", // yyyy-mm-dd
+  gender: "", 
+  timezone: "", 
   heightCm: null,
   weightKg: null,
 });
@@ -122,6 +145,8 @@ const errors = ref({
   firstName: "",
   lastName: "",
   birthDate: "",
+  gender: "", 
+  timezone: "",
   heightCm: "",
   weightKg: "",
 });
@@ -153,6 +178,8 @@ const loadProfile = async () => {
       firstName: data.firstName ?? "",
       lastName: data.lastName ?? "",
       birthDate: data.birthDate ?? "",
+      gender: data.gender ?? "", 
+      timezone: data.timeZone ?? data.timezone ?? localTimezone, 
       heightCm: data.heightCm ?? null,
       weightKg: data.weightKg ?? null,
     };
@@ -182,11 +209,9 @@ onMounted(() => {
 const validateProfile = () => {
   let ok = true;
   errors.value = {
-    firstName: "",
-    lastName: "",
-    birthDate: "",
-    heightCm: "",
-    weightKg: "",
+    firstName: "", lastName: "", birthDate: "",
+    gender: "", timezone: "", 
+    heightCm: "", weightKg: "",
   };
 
   if (!form.value.firstName || !form.value.firstName.trim()) {
@@ -197,6 +222,16 @@ const validateProfile = () => {
     errors.value.lastName = "El apellido es obligatorio.";
     ok = false;
   }
+  // Añadir validación de Género y Zona Horaria -->
+  if (!form.value.gender) {
+    errors.value.gender = 'El género es obligatorio.'
+    ok = false
+  }
+  if (!form.value.timezone) {
+    errors.value.timezone = 'La zona horaria es obligatoria.'
+    ok = false
+  }
+
   if (!form.value.birthDate) {
     errors.value.birthDate = "La fecha de nacimiento es obligatoria.";
     ok = false;
@@ -239,6 +274,8 @@ const saveProfile = async () => {
       firstName: form.value.firstName,
       lastName: form.value.lastName,
       birthDate: form.value.birthDate,
+      gender: form.value.gender.toUpperCase(),
+      timeZone: form.value.timezone,
       heightCm: Number(form.value.heightCm),
       weightKg: Number(form.value.weightKg),
     };
@@ -253,6 +290,8 @@ const saveProfile = async () => {
       firstName: saved.firstName ?? payload.firstName,
       lastName: saved.lastName ?? payload.lastName,
       birthDate: saved.birthDate ?? payload.birthDate,
+      gender: saved.gender ? saved.gender.toLowerCase() : payload.gender.toLowerCase(), 
+      timeZone: saved.timeZone ?? payload.timeZone, 
       heightCm: saved.heightCm ?? payload.heightCm,
       weightKg: saved.weightKg ?? payload.weightKg,
     };
@@ -274,6 +313,8 @@ const resetToLoaded = () => {
     firstName: "",
     lastName: "",
     birthDate: "",
+    gender: "", 
+    timezone: "",
     heightCm: "",
     weightKg: "",
   };
@@ -328,7 +369,6 @@ const changePassword = async () => {
   justify-content: center;
   background: #fafafa;
 }
-
 .profile-grid {
   display: grid;
   grid-template-columns: 1fr 380px;
@@ -336,7 +376,6 @@ const changePassword = async () => {
   width: 100%;
   max-width: 1100px;
 }
-
 .card {
   background: #fff;
   border-radius: 14px;
@@ -344,34 +383,38 @@ const changePassword = async () => {
   box-shadow: 0 8px 30px rgba(12, 12, 12, 0.06);
   border: 1px solid #eee;
 }
-
 .card-header h2 { margin: 0; font-size: 20px; }
 .muted { margin: 6px 0 0; color: #666; font-size: 13px; }
-
 .form { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
-
 .row { display: flex; gap: 12px; }
 .row .field { flex: 1; }
-
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field span { font-weight: 600; color: #111; font-size: 14px; }
-.field input {
+
+/* Añadido 'select' a la regla */
+.field input, .field select {
   padding: 12px 14px;
   border: 1.5px solid #e6e6e6;
   border-radius: 10px;
   font-size: 15px;
   background: #fff;
+  font-family: inherit;
 }
-.field input:focus { outline: none; border-color: #000; background: #fbfbfb; }
+.field input:focus, .field select:focus { 
+  outline: none; 
+  border-color: #000; 
+  background: #fbfbfb; 
+}
+
+/* Añadido estilo para input deshabilitado */
+.field input:disabled {
+  background: #f4f4f4;
+  color: #777;
+  cursor: not-allowed;
+}
 
 .error { color: #c53030; font-size: 13px; margin-top: 4px; }
-
-.actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 6px;
-}
-
+.actions { display: flex; gap: 10px; margin-top: 6px; }
 .btn {
   padding: 12px 16px;
   border-radius: 10px;
@@ -390,5 +433,7 @@ const changePassword = async () => {
 
 @media (max-width: 920px) {
   .profile-grid { grid-template-columns: 1fr; }
+  /* Añadida regla responsive para apilar filas */
+  .row { flex-direction: column; }
 }
 </style>

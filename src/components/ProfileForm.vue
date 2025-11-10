@@ -24,6 +24,24 @@
         </div>
 
         <div class="form-group">
+          <label for="gender">Género</label>
+          <select id="gender" v-model="form.gender">
+            <option value="" disabled>Selecciona uno...</option>
+            <option value="male">Masculino</option>
+            <option value="female">Femenino</option>
+            <option value="other">Otro</option>
+            <option value="prefer_not_to_say">Prefiero no decirlo</option>
+          </select>
+          <span v-if="errors.gender" class="error">{{ errors.gender }}</span>
+        </div>
+
+        <div class="form-group">
+          <label for="timezone">Zona Horaria (detectada)</label>
+          <input id="timezone" v-model="form.timezone" type="text" readonly disabled />
+          <span v-if="errors.timezone" class="error">{{ errors.timezone }}</span>
+        </div>
+
+        <div class="form-group">
           <label for="height">Altura (cm)</label>
           <input id="height" v-model.number="form.heightCm" type="number" min="50" max="250" step="0.1" />
           <span v-if="errors.heightCm" class="error">{{ errors.heightCm }}</span>
@@ -64,6 +82,8 @@ const form = ref({
   firstName: '',
   lastName: '',
   birthDate: '', // yyyy-mm-dd
+  gender: '', 
+  timezone: '', 
   heightCm: null,
   weightKg: null
 })
@@ -73,6 +93,8 @@ const errors = ref({
   firstName: '',
   lastName: '',
   birthDate: '',
+  gender: '', 
+  timezone: '',
   heightCm: '',
   weightKg: ''
 })
@@ -86,25 +108,49 @@ const fillFromInitial = (src) => {
   form.value.firstName = src.firstName ?? src.name ?? ''
   form.value.lastName = src.lastName ?? ''
   form.value.birthDate = src.birthDate ?? ''
+  form.value.gender = src.gender ?? '' 
+  form.value.timezone = src.timeZone ?? src.timezone ?? ''
   form.value.heightCm = src.heightCm ?? src.height ?? null
   form.value.weightKg = src.weightKg ?? src.weight ?? null
 }
 
+// Función para autodetectar Zona Horaria 
+const autoFillTimezone = () => {
+  if (!form.value.timezone) { // Solo si no tiene ya un valor
+    try {
+      form.value.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch (e) {
+      console.warn("No se pudo detectar la zona horaria.", e);
+      form.value.timezone = "UTC"; // Fallback
+    }
+  }
+}
+
 // Al montar, si llegan datos iniciales, pre-rellenamos el formulario
 onMounted(() => {
-  if (props.initial && Object.keys(props.initial).length) fillFromInitial(props.initial)
+  if (props.initial && Object.keys(props.initial).length) {
+    fillFromInitial(props.initial)
+  }
+
+  autoFillTimezone();
 })
 
 // Si cambian las props.initial desde fuera, sincronizamos el formulario
 watch(() => props.initial, (v) => {
-  if (v) fillFromInitial(v)
+  if (v) {
+    fillFromInitial(v)
+    autoFillTimezone(); 
+  }
 })
 
 // Validación de campos del formulario
 const validate = () => {
   let ok = true
   // Reset de errores antes de validar
-  errors.value = { firstName: '', lastName: '', birthDate: '', heightCm: '', weightKg: '' }
+  errors.value = { 
+    firstName: '', lastName: '', birthDate: '', 
+    gender: '', timezone: '', heightCm: '', weightKg: '' 
+  }
 
   // Nombre requerido
   if (!form.value.firstName || !form.value.firstName.trim()) {
@@ -145,6 +191,17 @@ const validate = () => {
     }
   }
 
+  //  Añadir validación de Género y Zona Horaria -->
+  if (!form.value.gender) {
+    errors.value.gender = 'El género es obligatorio.'
+    ok = false
+  }
+
+  if (!form.value.timezone) {
+    errors.value.timezone = 'La zona horaria es obligatoria.'
+    ok = false
+  }
+
   // Rango de altura permitido
   if (form.value.heightCm == null || form.value.heightCm < 50 || form.value.heightCm > 250) {
     errors.value.heightCm = 'Altura entre 50 y 250 cm.'
@@ -171,6 +228,8 @@ const handleSubmit = async () => {
       firstName: form.value.firstName,
       lastName: form.value.lastName,
       birthDate: form.value.birthDate,
+      gender: form.value.gender.toUpperCase(),
+      timeZone: form.value.timezone,
       heightCm: Number(form.value.heightCm),
       weightKg: Number(form.value.weightKg)
     }
@@ -218,8 +277,28 @@ const handleSubmit = async () => {
 
 .form-group { display:flex; flex-direction:column; gap:8px; margin-bottom:14px; }
 label { font-weight:600; color:#111; }
-input { padding:10px 12px; border:1.5px solid #e6e6e6; border-radius:8px; font-size:14px; }
-input:focus { outline:none; border-color:#000; background:#fbfbfb; }
+
+/* Añadido 'select' a la regla */
+input, select { 
+  padding:10px 12px; 
+  border:1.5px solid #e6e6e6; 
+  border-radius:8px; 
+  font-size:14px; 
+  font-family: inherit; /* Asegura que el select use la misma fuente */
+  background: #fff; /* Asegura fondo blanco para select en iOS */
+}
+input:focus, select:focus { 
+  outline:none; 
+  border-color:#000; 
+  background:#fbfbfb; 
+}
+
+/* Añadido estilo para input deshabilitado */
+input:disabled {
+  background: #f4f4f4;
+  color: #777;
+  cursor: not-allowed;
+}
 
 .error { color:#c53030; font-size:13px; margin-top:6px; }
 
