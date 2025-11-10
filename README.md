@@ -42,3 +42,16 @@ npm run build
 ```sh
 npm run lint
 ```
+
+
+### Construir y ejecutar el front
+Para pruebas en local, construimos el front en el puerto 8082 y lo conectamos a la API del puerto 8080:
+
+```sh
+docker build --build-arg VITE_API_URL=http://localhost:8080 -t fitapp-frontend-local .
+```
+
+```sh
+docker run -p 8082:80 --rm fitapp-frontend-local    
+```
+
