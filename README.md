@@ -44,6 +44,55 @@ npm run lint
 ```
 
 
+## Tests (rápido)
+
+Comandos básicos:
+
+1. Instala dependencias:
+
+```powershell
+npm install
+```
+
+2. Ejecuta todas las pruebas:
+
+```powershell
+npm run test
+```
+
+3. Modo watch (desarrollo):
+
+```powershell
+npm run test -- --watch
+```
+
+Dónde están los tests: `tests/unit/`
+
+Notas rápidas: las pruebas usan Vitest y `@vue/test-utils`. Los tests del proyecto mockean servicios con `vi.mock()` para no depender del backend.
+
+Ejecutar pruebas individuales
+
+- Ejecutar un fichero de tests concreto (una pasada):
+
+```powershell
+# usando el script de package.json
+npm run test -- tests/unit/RoutesNew.spec.js
+
+
+- Ejecutar un test concreto por nombre (grep/filtrado):
+
+```powershell
+# buscar por nombre de test (título exacto o patrón)
+npm run test -- tests/unit/RoutesNew.spec.js -t "Validación - nombre requerido"
+
+
+
+
+Variables de entorno útiles
+- `VITE_USE_MOCKS=true` — convención usada si quieres activar un mock local en `src/services` (si lo implementas).
+- `VITE_GOOGLE_MAPS_API_KEY=<tu_key>` — para que `RoutesNew.vue` cargue Google Maps en vez del fallback SVG. No subas esta clave al repo; usa `.env.local` y restringe por host en Google Cloud.
+- Para simular errores 4xx/5xx o latencias, MSW es muy conveniente (`ctx.status(500)`, `ctx.delay(1200)`).
+
 ### Construir y ejecutar el front
 Para pruebas en local, construimos el front en el puerto 8082 y lo conectamos a la API del puerto 8080:
 
