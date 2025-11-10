@@ -21,7 +21,6 @@
           <div v-else>
             <div v-if="routes.length === 0" class="empty-state">
               <p>No hay rutas todavía.</p>
-              <router-link class="btn" :to="{ name: 'RoutesNew' }">Crear ruta</router-link>
             </div>
 
             <ul v-else class="routes-list">
