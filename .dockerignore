@@ -1,0 +1,21 @@
+# Dependencias locales
+node_modules/
+
+# Archivos de Git
+.git
+.gitignore
+
+# Archivos de build local
+dist/
+
+# Archivos de IDE y SO
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Entornos y logs
+.env
+.env.local
+.env.example
+npm-debug.log
