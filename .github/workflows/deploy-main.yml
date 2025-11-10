@@ -7,13 +7,7 @@ on:
   push:
     branches:
       - main
-
-  # 2. Cuando se ABRE o ACTUALIZA un PR hacia 'main'
-  pull_request:
-    branches:
-      - main
-
-  # 3. Trigger MANUAL:
+  # 2. Trigger MANUAL:
   workflow_dispatch:
 
 jobs:
