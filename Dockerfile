@@ -2,9 +2,9 @@
 # Usar node:22-alpine
 FROM node:22-alpine AS builder
 
-# Define el argumento de build para la URL de la API
-# Esto nos permitirá pasar el VITE_API_URL desde la GitHub Action
+# Define los argumentos de build para la URL de la API y el token de Mapbox
 ARG VITE_API_URL
+ARG VITE_MAPBOX_ACCESS_TOKEN
 
 WORKDIR /app
 
@@ -18,8 +18,10 @@ RUN npm install
 COPY . .
 
 # Construye la aplicación (Build)
-# Inyecta el ARG como una variable de entorno ANTES de construir
-RUN VITE_API_URL=${VITE_API_URL} npm run build
+# Inyecta AMBOS ARGs como variables de entorno ANTES de construir
+RUN VITE_API_URL=${VITE_API_URL} \
+   VITE_MAPBOX_ACCESS_TOKEN=${VITE_MAPBOX_ACCESS_TOKEN} \
+   npm run build
 
 # --- ETAPA 2: SERVE (Servidor Nginx) ---
 FROM nginx:stable-alpine
