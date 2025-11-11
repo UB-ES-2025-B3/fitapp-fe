@@ -12,16 +12,23 @@
           <router-link class="nav-link" to="/" exact>Inicio</router-link>
 
           <template v-if="isAuthenticated">
-            <router-link
-              v-if="session.profileExists"
+
+            <template v-if="session.profileExists">
+
+              <router-link
+              class="nav-link"
+              :to="{ name: 'RoutesList' }" 
+              >Rutas</router-link>
+              <router-link
               class="nav-link"
               to="/profile"
-            >Mi Perfil</router-link>
+              >Mi Perfil</router-link>
+            </template>
 
             <router-link
-              v-else
-              class="nav-link"
-              to="/onboarding/profile"
+            v-else
+            class="nav-link"
+            to="/onboarding/profile"
             >Completar perfil</router-link>
 
             <button class="nav-link btn-logout" @click="logout">Cerrar sesión</button>
