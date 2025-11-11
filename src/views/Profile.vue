@@ -176,7 +176,7 @@ const loadProfile = async () => {
       firstName: data.firstName ?? "",
       lastName: data.lastName ?? "",
       birthDate: data.birthDate ?? "",
-      gender: data.gender ?? "", 
+      gender: data.gender ? data.gender.toLowerCase() : "", 
       timezone: data.timeZone ?? data.timezone ?? localTimezone, 
       heightCm: data.heightCm ?? null,
       weightKg: data.weightKg ?? null,
