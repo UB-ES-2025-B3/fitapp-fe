@@ -20,14 +20,17 @@
 
           <div v-else>
             <div v-if="routes.length === 0" class="empty-state">
-              <p>No hay rutas todavía.</p>
+              <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+                <p>No hay rutas todavía.</p>
+                <router-link class="btn" :to="{ name: 'RoutesNew' }">Crear ruta</router-link>
+              </div>
             </div>
 
             <ul v-else class="routes-list">
               <li v-for="r in routes" :key="r.id" class="route-row">
                 <div class="route-info">
                   <strong class="route-name">{{ r.name }}</strong>
-                  <span class="route-distance">{{ formatKm(r.distanceMeters) }}</span>
+                  <span class="route-distance">{{ r.distanceKm ? Number(r.distanceKm).toFixed(2) + ' km' : '-' }}</span>
                 </div>
 
                 <div class="row-actions">

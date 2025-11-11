@@ -41,8 +41,9 @@ jobs:
         run: |
           docker build . \
             --build-arg VITE_API_URL=${{ secrets.VITE_API_URL }} \
+            --build-arg VITE_MAPBOX_ACCESS_TOKEN=${{ secrets.VITE_MAPBOX_ACCESS_TOKEN }} \
             -t ${{ secrets.ACR_LOGIN_SERVER }}/fitapp-frontend:${{ github.sha }}
-          docker push ${{ secrets.ACR_LOGIN_SERVER }}/fitapp-frontend:${{ github.sha }} # (AC6)
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/fitapp-frontend:${{ github.sha }}
 
       # 5. Despliega en Azure App Service
       # App Service usa la nueva imagen que acabamos de subir

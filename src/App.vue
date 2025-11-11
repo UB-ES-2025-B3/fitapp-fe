@@ -111,16 +111,16 @@ const logout = () => {
   align-items: center;
   gap: 8px;
   letter-spacing: -0.5px;
-  
+
 }
 
 .logo img {
     /* Mantenemos el tamaño deseado */
-    width: 75px; 
+    width: 75px;
     height: 75px;
     /* Esto asegura que la imagen no cree espacio extra,
        lo cual a veces pasa con las imágenes inline */
-    display: block; 
+    display: block;
 }
 
 .nav-links {
