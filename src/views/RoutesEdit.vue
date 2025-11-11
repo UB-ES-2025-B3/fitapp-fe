@@ -240,7 +240,12 @@ async function loadRoute() {
     name.value = data.name || ''
     if (data.start) startLatLng.value = { lat: data.start.lat, lng: data.start.lng }
     if (data.end) endLatLng.value = { lat: data.end.lat, lng: data.end.lng }
-    serverDistanceMeters.value = data.distanceMeters ?? data.distance ?? null
+    const distKm = data.distanceKm
+    if (distKm != null) {
+      serverDistanceMeters.value = Number(distKm) * 1000
+    } else {
+      serverDistanceMeters.value = data.distanceMeters ?? data.distance ?? null
+    }
     // init map after we set points
     initMap()
     if (startLatLng.value) updateStartMarker()
@@ -267,8 +272,11 @@ async function onSubmit() {
     const id = route.params.id
     const payload = {
       name: name.value.trim(),
-      start: { lat: startLatLng.value.lat, lng: startLatLng.value.lng },
-      end: { lat: endLatLng.value.lat, lng: endLatLng.value.lng }
+      // 1. Enviar como String "lat,lon"
+      startPoint: `${startLatLng.value.lat},${startLatLng.value.lng}`,
+      endPoint: `${endLatLng.value.lat},${endLatLng.value.lng}`,
+      // 2. Calcular y enviar distanceKm
+      distanceKm: Number((distanceMeters.value / 1000).toFixed(2))
     }
     const res = await updateRoute(id, payload)
     serverDistanceMeters.value = res.distanceMeters ?? res.distance ?? serverDistanceMeters.value

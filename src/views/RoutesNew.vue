@@ -261,11 +261,11 @@ async function onSubmit() {
   try {
     const payload = {
       name: name.value.trim(),
-      nombre: name.value.trim(),
-      start: { lat: startLatLng.value.lat, lng: startLatLng.value.lng },
-      end: { lat: endLatLng.value.lat, lng: endLatLng.value.lng },
-      inicio: { lat: startLatLng.value.lat, lng: startLatLng.value.lng },
-      fin: { lat: endLatLng.value.lat, lng: endLatLng.value.lng }
+      // 1. Enviar como String "lat,lon"
+      startPoint: `${startLatLng.value.lat},${startLatLng.value.lng}`, 
+      endPoint: `${endLatLng.value.lat},${endLatLng.value.lng}`,
+      // 2. Calcular y enviar distanceKm
+      distanceKm: Number((distanceMeters.value / 1000).toFixed(2)) 
     }
 
     const res = await createRoute(payload)

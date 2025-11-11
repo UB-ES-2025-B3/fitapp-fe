@@ -12,7 +12,7 @@
           <div v-else-if="error" class="error-box">{{ error }}</div>
           <div v-else>
             <h2>{{ routeData.name }}</h2>
-            <p>Distancia: {{ formatKm(routeData.distanceMeters) }}</p>
+            <p>Distancia: {{ routeData.distanceKm ? Number(routeData.distanceKm).toFixed(2) + ' km' : '-' }}</p>
 
             <div class="form-row">
               <label>Mapa de la ruta</label>
@@ -41,7 +41,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import ConfirmModal from '@/components/ConfirmModal.vue'
 import { getRoute, deleteRoute } from '@/services/routesService'
@@ -69,18 +69,13 @@ let startMarker = null
 let endMarker = null
 
 function initMap() {
-  if (!mapContainer.value) return
-
-  // En el entorno de test (vitest/jsdom) no intentamos inicializar Mapbox
-  // porque la librería intenta crear un contexto WebGL y falla en JSDOM.
-  if (import.meta?.env?.MODE === 'test') {
-    console.warn('[RoutesShow] skipping map init in test mode')
+  if (!mapContainer.value) {
+    console.error('[RoutesShow] No se encontró mapContainer. El mapa no puede iniciar.')
     return
   }
 
-  // Prefer any token already set on mapboxgl (main.js). Fall back to env vars.
+  // ... (tu código del token y 'new mapboxgl.Map' va aquí como antes) ...
   const token = mapboxgl.accessToken || import.meta?.env?.VITE_MAPBOX_ACCESS_TOKEN || import.meta?.env?.VITE_MAPBOX_TOKEN || ''
-  console.log('[RoutesShow] initMap token (effective) =', token)
   mapboxgl.accessToken = mapboxgl.accessToken || token
   if (!mapboxgl.accessToken) {
     console.error('[RoutesShow] Mapbox token missing at initMap — map will not be created')
@@ -95,6 +90,12 @@ function initMap() {
   })
 
   map.addControl(new mapboxgl.NavigationControl())
+
+  // Cuando el mapa esté listo (estilos cargados)...
+  map.on('load', () => {
+    // ...pintamos los marcadores (los datos ya están cargados)
+    loadMarkersOnMap()
+  })
 }
 
 function loadMarkersOnMap() {
@@ -170,10 +171,49 @@ function updateRouteLine() {
   map.fitBounds(bounds, { padding: 80 })
 }
 
+/**
+ * Parsea un string "lat,lng" a un objeto { lat, lng }
+ * @param {string} str 
+ * @returns {Object|null}
+ */
+function parseLatLngString(str) {
+  if (typeof str !== 'string' || !str.includes(',')) {
+    return null
+  }
+  const parts = str.split(',')
+  if (parts.length !== 2) return null
+
+  const lat = parseFloat(parts[0])
+  const lng = parseFloat(parts[1])
+
+  if (isNaN(lat) || isNaN(lng)) {
+    return null
+  }
+  return { lat, lng }
+}
+
+
 function extractLatLngs(r) {
   if (!r) return { s: null, e: null }
-  const s = r.start ?? r.inicio ?? r.startLatLng ?? (r.startLat && r.startLng ? { lat: r.startLat, lng: r.startLng } : null)
-  const e = r.end ?? r.fin ?? r.endLatLng ?? (r.endLat && r.endLng ? { lat: r.endLat, lng: r.endLng } : null)
+
+  // --- Punto de inicio (Start) ---
+  // 1. Probar r.startPoint (string "lat,lng") que es lo que guarda la API
+  let s = parseLatLngString(r.startPoint)
+
+  // 2. Si falla, probar los formatos antiguos (como r.start) por si hay datos viejos
+  if (!s) {
+    s = r.start ?? r.inicio ?? r.startLatLng ?? (r.startLat && r.startLng ? { lat: r.startLat, lng: r.startLng } : null)
+  }
+
+  // --- Punto de fin (End) ---
+  // 1. Probar r.endPoint (string "lat,lng")
+  let e = parseLatLngString(r.endPoint)
+
+  // 2. Si falla, probar los formatos antiguos
+  if (!e) {
+    e = r.end ?? r.fin ?? r.endLatLng ?? (r.endLat && r.endLng ? { lat: r.endLat, lng: r.endLng } : null)
+  }
+
   return { s, e }
 }
 
@@ -195,9 +235,7 @@ async function load() {
     startLatLng.value = s || null
     endLatLng.value = e || null
 
-    if (map) {
-      loadMarkersOnMap()
-    }
+
   } catch (err) {
     error.value = err.response?.data?.message || err.message || 'Error cargando la ruta.'
   } finally {
@@ -246,9 +284,20 @@ const loadRoute = async () => {
 }
 
 onMounted(() => {
-  initMap()
-  // cargar datos de la ruta para poblar la vista (y mostrar botón Borrar)
+  // 1. Cargar los datos de la ruta PRIMERO
   loadRoute()
+})
+
+watch(loading, (isLoading) => {
+  // Si 'loading' acaba de cambiar a 'false' Y no hay error:
+  if (isLoading === false && !error.value) {
+    
+    // Esperamos a que Vue actualice el DOM (para que exista el div del mapa)
+    nextTick(() => {
+      // Ahora que el div del mapa existe, lo inicializamos
+      initMap()
+    })
+  }
 })
 
 onBeforeUnmount(() => {
