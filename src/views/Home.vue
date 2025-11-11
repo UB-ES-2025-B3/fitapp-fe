@@ -49,7 +49,7 @@
       <section class="content-section">
 
         <!-- Caso 1: Usuario sin rutas creadas - onboarding inicial -->
-        <div v-if="kpis.totalRoutesCreated === 0" class="welcome-card">
+        <div v-if="!kpis.hasCreatedRoutes" class="welcome-card">
           <div class="welcome-icon"><img src="../assets/icons/cohete.svg" alt="Desafío" class="cohete-icon cohete-on"/></div>
           <h2>Tu aventura empieza aquí</h2>
           <p>Crea tu primera ruta y comienza a registrar cada paso de tu progreso. Es más fácil de lo que piensas.</p>
@@ -67,15 +67,15 @@
             <!-- KPI 1: Número de rutas completadas hoy -->
             <KpiCard 
               :icon="RunningIcon" 
-              :value="kpis.rutasCompletadas" 
+              :value="kpis.routesCompletedToday" 
               title="Rutas completadas"
-              :subtitle="kpis.rutasCompletadas > 0 ? 'Has salido hoy. Bien hecho.' : 'Aún no has registrado ninguna ruta.'"
+              :subtitle="kpis.routesCompletedToday > 0 ? 'Has salido hoy. Bien hecho.' : 'Aún no has registrado ninguna ruta.'"
               color="#3B82F6"
             />
             <!-- KPI 2: Duración total de actividad en formato HH:MM:SS -->
             <KpiCard 
               :icon="ClockIcon"
-              :value="formatDuration(kpis.duracionTotal)" 
+              :value="formatDuration(kpis.totalDurationSecToday)" 
               title="Duración total"
               subtitle="Tiempo total en actividad hoy."
               color="#8B5CF6"
@@ -83,7 +83,7 @@
             <!-- KPI 3: Distancia recorrida en kilómetros -->
             <KpiCard 
               :icon="PosicionIcon" 
-              :value="kpis.distanciaTotal" 
+              :value="kpis.totalDistanceKmToday" 
               title="Distancia total"
               subtitle="Distancia recorrida hoy."
               unit="km"
@@ -93,9 +93,9 @@
             <!-- KPI 4: Calorías quemadas (requiere peso configurado) -->
             <KpiCard 
               :icon="RachaIcon" 
-              :value="kpis.caloriasHoy" 
+              :value="kpis.caloriesKcalToday" 
               title="Calorías de hoy"
-              :subtitle="kpis.caloriasHoy > 0 ? 'Energía gastada estimada.' : 'Completa tu peso para calcularlo.'"
+              :subtitle="kpis.caloriesKcalToday > 0 ? 'Energía gastada estimada.' : 'Completa tu peso para calcularlo.'"
               unit="kcal"
               color="#F59E0B"
             />
@@ -103,11 +103,11 @@
 
           <!-- Sección de racha: días consecutivos con actividad -->
           <div class="streak-section">
-            <div class="streak-card" :class="{ 'active': kpis.rachaDiasActivos > 0 }">
+            <div class="streak-card" :class="{ 'active': kpis.activeStreakDays > 0 }">
               <!-- Icono cambia según si hay racha activa o no -->
               <div class="streak-flame">
                 <img 
-                  v-if="kpis.rachaDiasActivos === 0" 
+                  v-if="kpis.activeStreakDays === 0" 
                   src="../assets/icons/madera.svg"
                   alt="Sin racha"
                   class="flame-icon flame-off"
@@ -122,20 +122,20 @@
               <div class="streak-content">
                 <!-- Número de días de la racha -->
                 <div class="streak-number">
-                  <span class="number">{{ kpis.rachaDiasActivos }}</span>
-                  <span class="label">{{ kpis.rachaDiasActivos === 1 ? 'día' : 'días' }}</span>
+                  <span class="number">{{ kpis.activeStreakDays }}</span>
+                  <span class="label">{{ kpis.activeStreakDays === 1 ? 'día' : 'días' }}</span>
                 </div>
                 <!-- Mensaje motivacional según la duración de la racha -->
-                <p class="streak-message">{{ getStreakMessage(kpis.rachaDiasActivos) }}</p>
+                <p class="streak-message">{{ getStreakMessage(kpis.activeStreakDays) }}</p>
               </div>
             </div>
           </div>
           
           <!-- CTA cuando el usuario tiene rutas creadas pero no ha completado ninguna hoy -->
-          <div v-if="kpis.rutasCompletadas === 0" class="action-card">
+          <div v-if="kpis.routesCompletedToday === 0" class="action-card">
             <div class="action-content">
               <h3>¿Listo para moverte?</h3>
-              <p>Tienes {{ kpis.totalRoutesCreated }} {{ kpis.totalRoutesCreated === 1 ? 'ruta creada' : 'rutas creadas' }}. Elige una y empieza tu actividad.</p>
+              <p>Ya tienes rutas creadas. Elige una y empieza tu actividad.</p>
             </div>
             <!-- Botón para ir a la lista de rutas disponibles -->
             <router-link to="/routes" class="cta-button secondary">
@@ -151,7 +151,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onActivated} from 'vue'
 import { getProfile } from '@/services/authService.js' // Servicio para obtener el perfil del usuario
 import { getHomeKpis } from '@/services/homeService.js' // Servicio para obtener los KPIs del día
 import KpiCard from '@/components/KpiCard.vue'
@@ -203,6 +203,12 @@ const loadDashboardData = async () => {
 // Hook de ciclo de vida: carga los datos al montar el componente
 onMounted(() => {
   loadDashboardData()
+})
+
+// Hook de ciclo de vida: carga los datos CADA VEZ que el componente
+// se activa (es decir, cuando navegas de vuelta a él).
+onActivated(() => {
+  loadDashboardData()
 })
 
 /**
