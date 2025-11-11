@@ -4,7 +4,7 @@
       <section class="card">
         <header class="card-header">
           <h1>Editar ruta</h1>
-          <p class="muted">Edición de ruta (pendiente de implementación con backend)</p>
+          <p class="muted">Editar una ruta existente: ajusta nombre, inicio/fin y guarda.</p>
         </header>
 
         <div class="card-body">
@@ -29,24 +29,7 @@
                 </div>
               </div>
 
-              <div v-if="googleLoaded" class="map-area" ref="googleMapRef" role="img" aria-label="Mapa de Google Maps para editar inicio y fin"></div>
-
-              <div v-else class="map-area" ref="mapRef" @click="onMapClick($event)" role="img" aria-label="Mapa para seleccionar inicio y fin">
-                <svg :width="mapW" :height="mapH" viewBox="0 0 1000 500">
-                  <rect x="0" y="0" width="1000" height="500" fill="#f6f9fb" stroke="#e6edf2" />
-                  <g v-if="startPoint">
-                    <circle :cx="startPoint.x" :cy="startPoint.y" r="8" fill="#2b6cb0" />
-                    <text :x="startPoint.x + 12" :y="startPoint.y + 4" font-size="14" fill="#2b6cb0">Inicio</text>
-                  </g>
-                  <g v-if="endPoint">
-                    <circle :cx="endPoint.x" :cy="endPoint.y" r="8" fill="#c53030" />
-                    <text :x="endPoint.x + 12" :y="endPoint.y + 4" font-size="14" fill="#c53030">Fin</text>
-                  </g>
-                  <g v-if="startPoint && endPoint">
-                    <line :x1="startPoint.x" :y1="startPoint.y" :x2="endPoint.x" :y2="endPoint.y" stroke="#777" stroke-dasharray="6 4" />
-                  </g>
-                </svg>
-              </div>
+              <div ref="mapContainer" class="map-area" role="img" aria-label="Mapa interactivo para seleccionar inicio y fin"></div>
 
               <div class="coords">
                 <div>Inicio: <strong v-if="startLatLng">{{ startLatLng.lat.toFixed(5) }}, {{ startLatLng.lng.toFixed(5) }}</strong><span v-else> — no seleccionado</span></div>
@@ -60,7 +43,7 @@
             </div>
 
             <div class="form-row actions-row">
-              <button class="btn" :disabled="saving"> <span v-if="saving">Guardando...</span><span v-else>Modificar ruta</span></button>
+              <button class="btn" :disabled="saving"> <span v-if="saving">Guardando...</span><span v-else>Guardar cambios</span></button>
               <router-link class="btn ghost" :to="{ name: 'RoutesList' }">Cancelar</router-link>
             </div>
 
@@ -74,62 +57,152 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { getRoute, updateRoute } from '@/services/routesService'
+import mapboxgl from 'mapbox-gl'
+import 'mapbox-gl/dist/mapbox-gl.css'
 
 defineOptions({ name: 'RoutesEdit' })
 
 const name = ref('')
 const mode = ref('start')
-const startPoint = ref(null)
-const endPoint = ref(null)
 const startLatLng = ref(null)
 const endLatLng = ref(null)
 const saving = ref(false)
 const error = ref('')
-const mapRef = ref(null)
+const mapContainer = ref(null)
 
-const mapW = 1000
-const mapH = 500
-const GMAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
-const googleLoaded = ref(false)
-const googleMapRef = ref(null)
-let mapInstance = null
-// unused: googleMarkers placeholder removed
+const serverDistanceMeters = ref(null)
 
-const BBOX = { north: 43.0, south: 36.0, west: -9.5, east: 3.5 }
+const router = useRouter()
+const route = useRoute()
+const toastMessage = ref('')
+const toastVisible = ref(false)
 
-function pixelToLatLng(px, py) {
-  const lng = BBOX.west + (px / mapW) * (BBOX.east - BBOX.west)
-  const lat = BBOX.north - (py / mapH) * (BBOX.north - BBOX.south)
-  return { lat, lng }
+let map = null
+let startMarker = null
+let endMarker = null
+
+function showToast(msg, ms = 1800) {
+  toastMessage.value = msg
+  toastVisible.value = true
+  setTimeout(() => { toastVisible.value = false }, ms)
+}
+
+function initMap() {
+  if (!mapContainer.value) return
+
+  if (import.meta?.env?.MODE === 'test') {
+    console.warn('[RoutesEdit] skipping map init in test mode')
+    return
+  }
+
+  const token = mapboxgl.accessToken || import.meta?.env?.VITE_MAPBOX_ACCESS_TOKEN || import.meta?.env?.VITE_MAPBOX_TOKEN || ''
+  mapboxgl.accessToken = mapboxgl.accessToken || token
+  if (!mapboxgl.accessToken) {
+    console.error('[RoutesEdit] Mapbox token missing at initMap — map will not be created')
+    return
+  }
+
+  map = new mapboxgl.Map({
+    container: mapContainer.value,
+    style: 'mapbox://styles/mapbox/streets-v11',
+    center: [2.1734, 41.3851],
+    zoom: 12
+  })
+
+  map.addControl(new mapboxgl.NavigationControl())
+  map.on('click', onMapClick)
 }
 
 function onMapClick(e) {
-  if (googleLoaded.value && mapInstance) return
-  const rect = mapRef.value.getBoundingClientRect()
-  const offsetX = e.clientX - rect.left
-  const offsetY = e.clientY - rect.top
-  const scaleX = mapW / rect.width
-  const scaleY = mapH / rect.height
-  const x = Math.max(0, Math.min(mapW, offsetX * scaleX))
-  const y = Math.max(0, Math.min(mapH, offsetY * scaleY))
-  const ll = pixelToLatLng(x, y)
+  const { lng, lat } = e.lngLat
   if (mode.value === 'start') {
-    startPoint.value = { x, y }
-    startLatLng.value = ll
+    startLatLng.value = { lat, lng }
+    updateStartMarker()
   } else {
-    endPoint.value = { x, y }
-    endLatLng.value = ll
+    endLatLng.value = { lat, lng }
+    updateEndMarker()
+  }
+  updateRouteLine()
+}
+
+function updateStartMarker() {
+  if (!map || !startLatLng.value) return
+  if (startMarker) startMarker.remove()
+  const el = document.createElement('div')
+  el.className = 'custom-marker-mapbox start-marker-mapbox'
+  el.innerHTML = '<div class="marker-pin-mapbox start-pin-mapbox"></div>'
+  startMarker = new mapboxgl.Marker({ element: el })
+    .setLngLat([startLatLng.value.lng, startLatLng.value.lat])
+    .setPopup(new mapboxgl.Popup({ offset: 25 }).setText('Inicio'))
+    .addTo(map)
+}
+
+function updateEndMarker() {
+  if (!map || !endLatLng.value) return
+  if (endMarker) endMarker.remove()
+  const el = document.createElement('div')
+  el.className = 'custom-marker-mapbox end-marker-mapbox'
+  el.innerHTML = '<div class="marker-pin-mapbox end-pin-mapbox"></div>'
+  endMarker = new mapboxgl.Marker({ element: el })
+    .setLngLat([endLatLng.value.lng, endLatLng.value.lat])
+    .setPopup(new mapboxgl.Popup({ offset: 25 }).setText('Fin'))
+    .addTo(map)
+}
+
+function updateRouteLine() {
+  if (!map) return
+  if (map.getSource && map.getSource('route')) {
+    try {
+      map.removeLayer('route')
+      map.removeSource('route')
+    } catch {
+      // ignore
+    }
+  }
+
+  if (startLatLng.value && endLatLng.value) {
+    map.addSource('route', {
+      type: 'geojson',
+      data: {
+        type: 'Feature',
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [startLatLng.value.lng, startLatLng.value.lat],
+            [endLatLng.value.lng, endLatLng.value.lat]
+          ]
+        }
+      }
+    })
+
+    map.addLayer({
+      id: 'route',
+      type: 'line',
+      source: 'route',
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: { 'line-color': '#777', 'line-width': 3 }
+    })
+
+    const bounds = new mapboxgl.LngLatBounds()
+    bounds.extend([startLatLng.value.lng, startLatLng.value.lat])
+    bounds.extend([endLatLng.value.lng, endLatLng.value.lat])
+    map.fitBounds(bounds, { padding: 80 })
   }
 }
 
 function clearPoints() {
-  startPoint.value = null
-  endPoint.value = null
   startLatLng.value = null
   endLatLng.value = null
+  if (startMarker) { startMarker.remove(); startMarker = null }
+  if (endMarker) { endMarker.remove(); endMarker = null }
+  if (map && map.getSource && map.getSource('route')) {
+    try { map.removeLayer('route'); map.removeSource('route') } catch {
+      /* ignore */
+    }
+  }
 }
 
 function haversineMeters(a, b) {
@@ -152,7 +225,6 @@ const distanceMeters = computed(() => {
   return haversineMeters(startLatLng.value, endLatLng.value)
 })
 
-const serverDistanceMeters = ref(null)
 const formattedDistance = computed(() => {
   const meters = serverDistanceMeters.value ?? distanceMeters.value
   if (!meters) return '-'
@@ -160,36 +232,25 @@ const formattedDistance = computed(() => {
   return `${km.toFixed(2)} km`
 })
 
-const router = useRouter()
-const route = useRoute()
-const toastMessage = ref('')
-const toastVisible = ref(false)
-function showToast(msg, ms = 1800) {
-  toastMessage.value = msg
-  toastVisible.value = true
-  setTimeout(() => { toastVisible.value = false }, ms)
-}
-
-async function load() {
+async function loadRoute() {
   error.value = ''
   try {
     const id = route.params.id
-    const res = await getRoute(id)
-    const r = res || {}
-    name.value = r.name || r.nombre || ''
-    // prefer server start/end if provided
-    if (r.start || r.inicio) {
-      const s = r.start || r.inicio
-      startLatLng.value = { lat: s.lat, lng: s.lng }
-      // approximate pixel for SVG
-      startPoint.value = { x: 500, y: 250 }
+    const data = await getRoute(id)
+    name.value = data.name || ''
+    if (data.start) startLatLng.value = { lat: data.start.lat, lng: data.start.lng }
+    if (data.end) endLatLng.value = { lat: data.end.lat, lng: data.end.lng }
+    const distKm = data.distanceKm
+    if (distKm != null) {
+      serverDistanceMeters.value = Number(distKm) * 1000
+    } else {
+      serverDistanceMeters.value = data.distanceMeters ?? data.distance ?? null
     }
-    if (r.end || r.fin) {
-      const e = r.end || r.fin
-      endLatLng.value = { lat: e.lat, lng: e.lng }
-      endPoint.value = { x: 540, y: 260 }
-    }
-    serverDistanceMeters.value = r.distanceMeters ?? r.distance ?? null
+    // init map after we set points
+    initMap()
+    if (startLatLng.value) updateStartMarker()
+    if (endLatLng.value) updateEndMarker()
+    if (startLatLng.value && endLatLng.value) updateRouteLine()
   } catch (err) {
     error.value = err.response?.data?.message || err.message || 'Error cargando la ruta.'
   }
@@ -211,261 +272,48 @@ async function onSubmit() {
     const id = route.params.id
     const payload = {
       name: name.value.trim(),
-      nombre: name.value.trim(),
-      start: { lat: startLatLng.value.lat, lng: startLatLng.value.lng },
-      end: { lat: endLatLng.value.lat, lng: endLatLng.value.lng },
-      inicio: { lat: startLatLng.value.lat, lng: startLatLng.value.lng },
-      fin: { lat: endLatLng.value.lat, lng: endLatLng.value.lng }
+      // 1. Enviar como String "lat,lon"
+      startPoint: `${startLatLng.value.lat},${startLatLng.value.lng}`,
+      endPoint: `${endLatLng.value.lat},${endLatLng.value.lng}`,
+      // 2. Calcular y enviar distanceKm
+      distanceKm: Number((distanceMeters.value / 1000).toFixed(2))
     }
     const res = await updateRoute(id, payload)
-    const returned = res || {}
-    serverDistanceMeters.value = returned.distanceMeters ?? returned.distance ?? null
-    showToast('Ruta modificada correctamente')
+    serverDistanceMeters.value = res.distanceMeters ?? res.distance ?? serverDistanceMeters.value
+    showToast('Ruta actualizada correctamente')
     setTimeout(() => { router.push({ name: 'RoutesList' }) }, 900)
   } catch (err) {
-    error.value = err.response?.data?.message || err.message || 'Error guardando la ruta.'
+    error.value = err.response?.data?.message || err.message || 'Error actualizando la ruta.'
   } finally {
     saving.value = false
   }
 }
 
 onMounted(() => {
-  if (GMAPS_KEY && !import.meta.vitest) {
-    // optional: initGoogleMap() similar to RoutesNew if desired; skip here for brevity
-  }
-  load()
+  loadRoute()
+})
+
+onBeforeUnmount(() => {
+  if (map) { map.remove(); map = null }
 })
 </script>
 
 <style scoped>
-.page-container { 
-  padding: 28px 20px; 
-  display: flex; 
-  justify-content: center; 
-}
-
-.card { 
-  width: 100%; 
-  max-width: 760px; 
-  background: #fff; 
-  border-radius: 12px; 
-  padding: 24px; 
-  border: 1px solid #eee; 
-  box-shadow: 0 8px 30px rgba(12, 12, 12, 0.05);
-}
-
-.card-header h1 {
-  margin: 0 0 8px 0;
-  font-size: 24px;
-}
-
-.muted { 
-  color: #666; 
-  margin: 0;
-  font-size: 14px;
-}
-
-.card-body {
-  margin-top: 24px;
-}
-
-.form-row { 
-  margin-bottom: 20px; 
-  display: flex; 
-  flex-direction: column;
-}
-
-.form-row label { 
-  font-weight: 600; 
-  margin-bottom: 8px;
-  font-size: 14px;
-  color: #333;
-}
-
-.form-row input[type="text"], 
-.form-row input[type="number"] { 
-  padding: 11px 12px; 
-  border-radius: 8px; 
-  border: 1px solid #ddd;
-  font-size: 14px;
-}
-
-.form-row input[type="text"]:focus, 
-.form-row input[type="number"]:focus { 
-  outline: none;
-  border-color: #000;
-}
-
-.required { 
-  color: #c53030;
-}
-
-.map-controls { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.mode {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-}
-
-.mode label { 
-  margin: 0;
-  font-size: 14px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 500;
-}
-
-.mode input[type="radio"] {
-  cursor: pointer;
-}
-
-.map-area { 
-  border-radius: 10px; 
-  overflow: hidden; 
-  border: 1px solid #e6edf2; 
-  background: linear-gradient(180deg, #f8fbfd, #f6f9fb); 
-  height: 400px;
-  width: 100%;
-  cursor: crosshair;
-  position: relative;
-}
-
-.map-area svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.coords { 
-  display: flex; 
-  gap: 20px; 
-  margin-top: 12px; 
-  color: #555;
-  font-size: 13px;
-}
-
-.coords strong {
-  color: #000;
-  font-weight: 600;
-}
-
-.actions-row { 
-  display: flex; 
-  gap: 12px; 
-  align-items: center;
-  margin-top: 24px;
-}
-
-.btn { 
-  padding: 11px 18px; 
-  border-radius: 8px; 
-  background: #000; 
-  color: #fff; 
-  border: none; 
-  cursor: pointer; 
-  text-decoration: none;
-  font-size: 14px;
-  font-weight: 600;
-  transition: all 0.2s ease;
-  display: inline-block;
-}
-
-.btn:hover:not(:disabled) {
-  background: #333;
-  transform: translateY(-1px);
-}
-
-.btn:disabled {
-  background: #999;
-  cursor: not-allowed;
-}
-
-.btn.ghost { 
-  background: transparent; 
-  color: #333; 
-  border: 1px solid #ddd;
-}
-
-.btn.ghost:hover {
-  background: #f5f5f5;
-  border-color: #999;
-}
-
-.btn.small { 
-  padding: 7px 12px; 
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.btn.danger {
-  background: #c53030;
-}
-
-.btn.danger:hover:not(:disabled) {
-  background: #9b2c2c;
-}
-
-.error-box { 
-  background: #fef2f2; 
-  color: #c53030; 
-  padding: 14px; 
-  border-radius: 8px; 
-  border: 1px solid #fecaca;
-  margin-top: 16px;
-  font-size: 14px;
-}
-
-.toast { 
-  position: fixed; 
-  right: 20px; 
-  bottom: 20px; 
-  background: #2f855a; 
-  color: #fff; 
-  padding: 12px 16px; 
-  border-radius: 8px; 
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
-  font-size: 14px;
-  z-index: 1000;
-  font-weight: 500;
-}
-
-@media (max-width: 720px) {
-  .card {
-    padding: 20px;
-  }
-
-  .coords { 
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .map-controls {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .actions-row {
-    flex-direction: column;
-    width: 100%;
-  }
-  
-  .btn {
-    width: 100%;
-    text-align: center;
-  }
-  
-  .map-area {
-    height: 300px;
-  }
-}
+/* Reuse same styles as RoutesNew for consistency */
+.page-container { padding: 28px 20px; display:flex; justify-content:center }
+.card { width:100%; max-width:760px; background:#fff; border-radius:12px; padding:24px; border:1px solid #eee; box-shadow:0 8px 30px rgba(12,12,12,0.05) }
+.card-header h1 { margin:0 0 8px 0; font-size:24px }
+.muted { color:#666; margin:0; font-size:14px }
+.card-body { margin-top:24px }
+.form-row { margin-bottom:20px; display:flex; flex-direction:column }
+.form-row label { font-weight:600; margin-bottom:8px; font-size:14px; color:#333 }
+.form-row input[type="text"] { padding:11px 12px; border-radius:8px; border:1px solid #ddd; font-size:14px }
+.required { color:#c53030 }
+.map-area { border-radius:10px; overflow:hidden; border:1px solid #e6edf2; height:450px; width:100%; position:relative; z-index:1; background:#f0f4f8 }
+.coords { display:flex; gap:20px; margin-top:12px; color:#555; font-size:13px }
+.actions-row { display:flex; gap:12px; align-items:center; margin-top:24px }
+.btn { padding:11px 18px; border-radius:8px; background:#000; color:#fff; border:none; cursor:pointer; text-decoration:none; font-size:14px; font-weight:600 }
+.btn.ghost { background:transparent; color:#333; border:1px solid #ddd }
+.error-box { background:#fef2f2; color:#c53030; padding:14px; border-radius:8px; border:1px solid #fecaca; margin-top:16px; font-size:14px }
+.toast { position:fixed; right:20px; bottom:20px; background:#2f855a; color:#fff; padding:12px 16px; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.15); font-size:14px; z-index:1000; font-weight:500 }
 </style>

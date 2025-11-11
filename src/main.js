@@ -7,7 +7,16 @@ import { useSessionStore } from '@/stores/session.js'
 import api, { setupInterceptors } from '@/services/api.js'
 import { getProfile } from '@/services/authService.js'
 
+console.log('import.meta.env.VITE_MAPBOX_ACCESS_TOKEN =', import.meta.env.VITE_MAPBOX_ACCESS_TOKEN)
+import mapboxgl from 'mapbox-gl'
 
+// Set Mapbox token globally at app startup so components don't depend on load order
+mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || ''
+if (!mapboxgl.accessToken) {
+  console.warn('[main] VITE_MAPBOX_ACCESS_TOKEN not set — Mapbox components may fail.\nCreate a .env file and restart the dev server with: npm run dev')
+} else {
+  console.log('[main] Mapbox token set on mapboxgl')
+}
 // 1) Crear app y registrar plugins
 const app = createApp(App)
 const pinia = createPinia()
@@ -50,7 +59,7 @@ window.addEventListener('storage', (e) => {
   if (e.key === 'token' && !e.newValue) {
     // Se ha borrado el token en otra pestaña
     try { session.clearSession() } catch (e) {}
-    
+
     // Evitar redirección redundante si ya estamos en /login
     if (router.currentRoute.value.name !== 'login') {
       router.push({ name: 'login' })
