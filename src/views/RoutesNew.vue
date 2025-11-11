@@ -124,6 +124,11 @@ function onMapClick(e) {
 }
 
 function updateStartMarker() {
+  // Si ya existe un marcador de inicio, elimínalo
+  if (startMarker) {
+    startMarker.remove()
+  }
+
   const el = document.createElement('div')
   el.className = 'custom-marker-mapbox start-marker-mapbox'
   el.innerHTML = '<div class="marker-pin-mapbox start-pin-mapbox"></div>'
@@ -135,6 +140,11 @@ function updateStartMarker() {
 }
 
 function updateEndMarker() {
+  // Si ya existe un marcador de fin, elimínalo
+  if (endMarker) {
+    endMarker.remove()
+  }
+  
   const el = document.createElement('div')
   el.className = 'custom-marker-mapbox end-marker-mapbox'
   el.innerHTML = '<div class="marker-pin-mapbox end-pin-mapbox"></div>'
