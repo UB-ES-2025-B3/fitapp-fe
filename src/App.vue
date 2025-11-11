@@ -12,16 +12,23 @@
           <router-link class="nav-link" to="/" exact>Inicio</router-link>
 
           <template v-if="isAuthenticated">
-            <router-link
-              v-if="session.profileExists"
+
+            <template v-if="session.profileExists">
+
+              <router-link
+              class="nav-link"
+              :to="{ name: 'RoutesList' }" 
+              >Rutas</router-link>
+              <router-link
               class="nav-link"
               to="/profile"
-            >Mi Perfil</router-link>
+              >Mi Perfil</router-link>
+            </template>
 
             <router-link
-              v-else
-              class="nav-link"
-              to="/onboarding/profile"
+            v-else
+            class="nav-link"
+            to="/onboarding/profile"
             >Completar perfil</router-link>
 
             <button class="nav-link btn-logout" @click="logout">Cerrar sesión</button>
@@ -111,16 +118,16 @@ const logout = () => {
   align-items: center;
   gap: 8px;
   letter-spacing: -0.5px;
-  
+
 }
 
 .logo img {
     /* Mantenemos el tamaño deseado */
-    width: 75px; 
+    width: 75px;
     height: 75px;
     /* Esto asegura que la imagen no cree espacio extra,
        lo cual a veces pasa con las imágenes inline */
-    display: block; 
+    display: block;
 }
 
 .nav-links {

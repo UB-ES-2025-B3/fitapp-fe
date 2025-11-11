@@ -5,11 +5,13 @@ import { createRouter, createWebHistory } from 'vue-router';
 import RegisterView from '../views/Register.vue'
 import LoginView from '../views/Login.vue'
 import HomeView from '../views/Home.vue'
-import OnboardingProfile from '@/views/OnboardingProfile.vue';
 import Profile from '@/views/Profile.vue';
 
 // Store de sesión (Pinia)
-import { useSessionStore } from "@/stores/session.js";
+// Note: the session store is available via Pinia, but the router guard
+// reads localStorage directly to keep guards deterministic in test
+// environments (no Pinia bootstrapping required).
+// import { useSessionStore } from "@/stores/session.js";
 
 // Nota: OnboardingProfile se carga de forma "lazy" más abajo vía import dinámico.
 
@@ -44,6 +46,29 @@ const routes = [
     name: 'Profile',
     component: Profile
   }
+  ,
+  {
+    path: '/routes',
+    name: 'RoutesList',
+    component: () => import('@/views/Routes.vue')
+  },
+  {
+    path: '/routes/new',
+    name: 'RoutesNew',
+    component: () => import('@/views/RoutesNew.vue')
+  },
+  {
+    path: '/routes/:id',
+    name: 'RoutesShow',
+    component: () => import('@/views/RoutesShow.vue'),
+    props: true
+  },
+  {
+    path: '/routes/:id/edit',
+    name: 'RoutesEdit',
+    component: () => import('@/views/RoutesEdit.vue'),
+    props: true
+  }
 ]
 
 // ========================
@@ -64,10 +89,11 @@ const router = createRouter({
 //  - profileExists: si el usuario ya completó su perfil (onboarding)
 
 router.beforeEach((to, from, next) => {
-  const session = useSessionStore();
-
-  const isAuth = !!session.token;
-  const profileComplete = !!session.profileExists;
+  // Leer estado de sesión desde localStorage para que el guard sea robusto
+  // tanto en la app como en entornos de test (sin necesidad de Pinia inicializada).
+  const token = localStorage.getItem('token') || null
+  const profileComplete = localStorage.getItem('profileExists') === 'true'
+  const isAuth = !!token
 
   // 1) Usuario NO autenticado:
   //    - Sólo puede ir a login y register.
