@@ -23,8 +23,33 @@
       <button @click="loadDashboardData" class="btn-retry">Intentar de nuevo</button>
     </div>
 
-  <!-- Estado de éxito: muestra el contenido principal cuando kpis y profile están cargados -->
-  <div v-if="isKpisLoaded">
+    <!-- Estado auxiliar: cuando no hay kpis cargados (error o vacío) mostramos una tarjeta CTA para definir objetivo -->
+    <div v-if="!isLoading && !isKpisLoaded" class="content-section">
+      <div class="dashboard-content">
+        <div class="kpi-grid">
+          <div class="kpi-card-v2">
+            <div class="card-header">
+              <div class="card-icon" style="background-color: #F59E0B">
+                <img v-if="typeof RachaIcon === 'string' && RachaIcon.includes('/')" :src="RachaIcon" class="icon-svg" alt="icon" />
+                <template v-else-if="typeof RachaIcon === 'string'">
+                  {{ RachaIcon }}
+                </template>
+                <component v-else :is="RachaIcon" class="icon-svg" />
+              </div>
+              <span class="value">0 kcal</span>
+            </div>
+            <div class="card-content">
+              <span class="title">Calorías de hoy</span>
+              <span class="subtitle">Define tu objetivo para ver el progreso</span>
+              <router-link to="/profile" class="btn-define-goal define-goal-cta">Definir objetivo</router-link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Estado de éxito: muestra el contenido principal cuando kpis y profile están cargados -->
+    <div v-else-if="isKpisLoaded">
 
       <!-- Sección hero: saludo personalizado y frase motivacional -->
       <main class="hero-section">
@@ -92,15 +117,36 @@
               :decimals="1"
               color="#10B981"
             />
-            <!-- KPI 4: Calorías quemadas (muestra progreso si hay objetivo) -->
-            <KpiCard
-              :icon="RachaIcon"
-              :value="caloriesDisplayValue"
-              title="Calorías de hoy"
-              :subtitle="caloriesSubtitle"
-              unit="kcal"
-              color="#F59E0B"
-            />
+            <!-- KPI 4: Calorías quemadas (muestra progreso si hay objetivo; CTA para definir objetivo si no existe) -->
+            <template v-if="kpis && Number(kpis.goalKcalDaily) > 0">
+              <KpiCard
+                :icon="RachaIcon"
+                :value="caloriesDisplayValue"
+                title="Calorías de hoy"
+                :subtitle="caloriesSubtitle"
+                unit="kcal"
+                color="#F59E0B"
+              />
+            </template>
+            <template v-else>
+              <div class="kpi-card-v2">
+                <div class="card-header">
+                  <div class="card-icon" style="background-color: #F59E0B">
+                    <img v-if="typeof RachaIcon === 'string' && RachaIcon.includes('/')" :src="RachaIcon" class="icon-svg" alt="icon" />
+                    <template v-else-if="typeof RachaIcon === 'string'">
+                      {{ RachaIcon }}
+                    </template>
+                    <component v-else :is="RachaIcon" class="icon-svg" />
+                  </div>
+                  <span class="value">{{ (kpis && kpis.caloriesKcalToday) ? kpis.caloriesKcalToday : 0 }} kcal</span>
+                </div>
+                <div class="card-content">
+                  <span class="title">Calorías de hoy</span>
+                  <span class="subtitle">Define tu objetivo para ver el progreso</span>
+                  <router-link to="/profile" class="btn-define-goal define-goal-cta">Definir objetivo</router-link>
+                </div>
+              </div>
+            </template>
           </div>
 
           <!-- Sección de racha: días consecutivos con actividad -->
