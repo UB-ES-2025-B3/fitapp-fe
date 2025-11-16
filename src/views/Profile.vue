@@ -61,6 +61,12 @@
             </label>
           </div>
 
+          <label class="field">
+            <span>Objetivo Kcal Diarias</span>
+            <input id="goalKcal" v-model.number="form.goalKcalDaily" type="number" min="0" step="1" placeholder="Ej. 2000" />
+            <small v-if="errors.goalKcalDaily" class="error">{{ errors.goalKcalDaily }}</small>
+          </label>
+
           <div class="actions">
             <button type="submit" class="btn" :disabled="saving">
               <span v-if="saving">Guardando...</span>
@@ -180,6 +186,7 @@ const form = ref({
   timezone: "",
   heightCm: null,
   weightKg: null,
+  goalKcalDaily: null,
 });
 
 const errors = ref({
@@ -224,6 +231,7 @@ const loadProfile = async () => {
       timezone: data.timeZone ?? data.timezone ?? localTimezone,
       heightCm: data.heightCm ?? null,
       weightKg: data.weightKg ?? null,
+      goalKcalDaily: data.goalKcalDaily ?? data.goalKcal ?? data.goal ?? null,
     };
     Object.assign(form.value, { ...loaded.value });
 
@@ -311,6 +319,15 @@ const validateProfile = () => {
     ok = false;
   }
 
+  // goalKcalDaily: puede ser 0 o null; si viene, debe ser >= 0
+  if (form.value.goalKcalDaily != null && form.value.goalKcalDaily !== '') {
+    const v = Number(form.value.goalKcalDaily)
+    if (isNaN(v) || v < 0) {
+      errors.value.goalKcalDaily = 'Objetivo de Kcal debe ser >= 0.'
+      ok = false
+    }
+  }
+
   return ok;
 };
 
@@ -330,7 +347,8 @@ const saveProfile = async () => {
       gender: form.value.gender.toUpperCase(),
       timeZone: form.value.timezone,
       heightCm: Number(form.value.heightCm),
-      weightKg: Number(form.value.weightKg),
+        weightKg: Number(form.value.weightKg),
+        goalKcalDaily: form.value.goalKcalDaily == null || form.value.goalKcalDaily === '' ? null : Number(form.value.goalKcalDaily),
     };
 
     const saved = await updateProfile(payload);
@@ -347,6 +365,7 @@ const saveProfile = async () => {
       timeZone: saved.timeZone ?? payload.timeZone,
       heightCm: saved.heightCm ?? payload.heightCm,
       weightKg: saved.weightKg ?? payload.weightKg,
+      goalKcalDaily: saved.goalKcalDaily ?? payload.goalKcalDaily ?? null,
     };
     Object.assign(form.value, { ...loaded.value });
 
@@ -370,6 +389,7 @@ const resetToLoaded = () => {
     timezone: "",
     heightCm: "",
     weightKg: "",
+    goalKcalDaily: "",
   };
 };
 

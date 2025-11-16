@@ -51,6 +51,12 @@
           <span v-if="errors.weightKg" class="error">{{ errors.weightKg }}</span>
         </div>
 
+        <div class="form-group">
+          <label for="goalKcal">Objetivo Kcal Diarias</label>
+          <input id="goalKcal" v-model.number="form.goalKcalDaily" type="number" min="0" step="1" placeholder="Ej. 2000" />
+          <span v-if="errors.goalKcalDaily" class="error">{{ errors.goalKcalDaily }}</span>
+        </div>
+
         <button class="submit-btn" :disabled="isSaving">
           <span v-if="isSaving">{{ mode === 'create' ? 'Creando...' : 'Guardando...' }}</span>
           <span v-else>{{ mode === 'create' ? 'Crear perfil' : 'Guardar perfil' }}</span>
@@ -80,10 +86,11 @@ const form = ref({
   firstName: '',
   lastName: '',
   birthDate: '', // yyyy-mm-dd
-  gender: '', 
-  timezone: '', 
+  gender: '',
+  timezone: '',
   heightCm: null,
-  weightKg: null
+  weightKg: null,
+  goalKcalDaily: null
 })
 
 // Mensajes de error por campo
@@ -91,10 +98,11 @@ const errors = ref({
   firstName: '',
   lastName: '',
   birthDate: '',
-  gender: '', 
+  gender: '',
   timezone: '',
   heightCm: '',
-  weightKg: ''
+  weightKg: '',
+  goalKcalDaily: ''
 })
 
 // Flag de guardado (para deshabilitar botón y mostrar loading)
@@ -106,13 +114,14 @@ const fillFromInitial = (src) => {
   form.value.firstName = src.firstName ?? src.name ?? ''
   form.value.lastName = src.lastName ?? ''
   form.value.birthDate = src.birthDate ?? ''
-  form.value.gender = src.gender ?? '' 
+  form.value.gender = src.gender ?? ''
   form.value.timezone = src.timeZone ?? src.timezone ?? ''
   form.value.heightCm = src.heightCm ?? src.height ?? null
   form.value.weightKg = src.weightKg ?? src.weight ?? null
+  form.value.goalKcalDaily = src.goalKcalDaily ?? src.goalKcal ?? src.goal ?? null
 }
 
-// Función para autodetectar Zona Horaria 
+// Función para autodetectar Zona Horaria
 const autoFillTimezone = () => {
   if (!form.value.timezone) { // Solo si no tiene ya un valor
     try {
@@ -137,7 +146,7 @@ onMounted(() => {
 watch(() => props.initial, (v) => {
   if (v) {
     fillFromInitial(v)
-    autoFillTimezone(); 
+    autoFillTimezone();
   }
 })
 
@@ -145,9 +154,9 @@ watch(() => props.initial, (v) => {
 const validate = () => {
   let ok = true
   // Reset de errores antes de validar
-  errors.value = { 
-    firstName: '', lastName: '', birthDate: '', 
-    gender: '', timezone: '', heightCm: '', weightKg: '' 
+  errors.value = {
+    firstName: '', lastName: '', birthDate: '',
+    gender: '', timezone: '', heightCm: '', weightKg: ''
   }
 
   // Nombre requerido
@@ -212,6 +221,15 @@ const validate = () => {
     ok = false
   }
 
+  // goalKcalDaily: puede ser 0 o null, pero si viene, debe ser >= 0
+  if (form.value.goalKcalDaily != null && form.value.goalKcalDaily !== '') {
+    const v = Number(form.value.goalKcalDaily)
+    if (isNaN(v) || v < 0) {
+      errors.value.goalKcalDaily = 'Objetivo de Kcal debe ser >= 0.'
+      ok = false
+    }
+  }
+
   return ok
 }
 
@@ -229,7 +247,8 @@ const handleSubmit = async () => {
       gender: form.value.gender.toUpperCase(),
       timeZone: form.value.timezone,
       heightCm: Number(form.value.heightCm),
-      weightKg: Number(form.value.weightKg)
+      weightKg: Number(form.value.weightKg),
+      goalKcalDaily: form.value.goalKcalDaily == null || form.value.goalKcalDaily === '' ? null : Number(form.value.goalKcalDaily)
     }
 
     // Llama al endpoint adecuado según el modo
@@ -277,18 +296,18 @@ const handleSubmit = async () => {
 label { font-weight:600; color:#111; }
 
 /* Añadido 'select' a la regla */
-input, select { 
-  padding:10px 12px; 
-  border:1.5px solid #e6e6e6; 
-  border-radius:8px; 
-  font-size:14px; 
+input, select {
+  padding:10px 12px;
+  border:1.5px solid #e6e6e6;
+  border-radius:8px;
+  font-size:14px;
   font-family: inherit; /* Asegura que el select use la misma fuente */
   background: #fff; /* Asegura fondo blanco para select en iOS */
 }
-input:focus, select:focus { 
-  outline:none; 
-  border-color:#000; 
-  background:#fbfbfb; 
+input:focus, select:focus {
+  outline:none;
+  border-color:#000;
+  background:#fbfbfb;
 }
 
 /* Añadido estilo para input deshabilitado */
