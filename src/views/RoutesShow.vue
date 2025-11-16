@@ -131,6 +131,12 @@ function initMap() {
     return
   }
 
+  // En modo test no inicializamos Mapbox (evitar errores de WebGL en JSDOM)
+  if (import.meta?.env?.MODE === 'test') {
+    console.warn('[RoutesShow] skipping map init in test mode')
+    return
+  }
+
   // ... (tu código del token y 'new mapboxgl.Map' va aquí como antes) ...
   const token = mapboxgl.accessToken || import.meta?.env?.VITE_MAPBOX_ACCESS_TOKEN || import.meta?.env?.VITE_MAPBOX_TOKEN || ''
   mapboxgl.accessToken = mapboxgl.accessToken || token
@@ -230,7 +236,7 @@ function updateRouteLine() {
 
 /**
  * Parsea un string "lat,lng" a un objeto { lat, lng }
- * @param {string} str 
+ * @param {string} str
  * @returns {Object|null}
  */
 function parseLatLngString(str) {
@@ -399,7 +405,7 @@ onMounted(() => {
 watch(loading, (isLoading) => {
   // Si 'loading' acaba de cambiar a 'false' Y no hay error:
   if (isLoading === false && !error.value) {
-    
+
     // Esperamos a que Vue actualice el DOM (para que exista el div del mapa)
     nextTick(() => {
       // Ahora que el div del mapa existe, lo inicializamos

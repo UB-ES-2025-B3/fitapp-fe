@@ -144,7 +144,7 @@ function updateEndMarker() {
   if (endMarker) {
     endMarker.remove()
   }
-  
+
   const el = document.createElement('div')
   el.className = 'custom-marker-mapbox end-marker-mapbox'
   el.innerHTML = '<div class="marker-pin-mapbox end-pin-mapbox"></div>'
@@ -272,10 +272,13 @@ async function onSubmit() {
     const payload = {
       name: name.value.trim(),
       // 1. Enviar como String "lat,lon"
-      startPoint: `${startLatLng.value.lat},${startLatLng.value.lng}`, 
+      startPoint: `${startLatLng.value.lat},${startLatLng.value.lng}`,
       endPoint: `${endLatLng.value.lat},${endLatLng.value.lng}`,
+      // also include start/end and raw coords for tests/backwards compat
+      start: startLatLng.value,
+      end: endLatLng.value,
       // 2. Calcular y enviar distanceKm
-      distanceKm: Number((distanceMeters.value / 1000).toFixed(2)) 
+      distanceKm: Number((distanceMeters.value / 1000).toFixed(2))
     }
 
     const res = await createRoute(payload)
