@@ -62,19 +62,20 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 const props = defineProps({
   distanceKm: { type: Number, required: true },
   durationSec: { type: Number, required: true },
-  isFinishing: { type: Boolean, default: false }
+  isFinishing: { type: Boolean, default: false },
+  initialActivityType: { type: String, default: '' }
 })
 
 const emit = defineEmits(['cancel', 'save'])
 
 // Campos del formulario
 // El DTO pide activityType y notes
-const activityType = ref('')
+const activityType = ref(props.initialActivityType || '')
 const notes = ref('')
 const error = ref('')
 
