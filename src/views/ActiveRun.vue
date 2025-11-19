@@ -1,5 +1,4 @@
 <template>
-    
   <div class="run-page-container">
     <div v-if="isLoading" class="loading-state">
       <div class="spinner"></div>
@@ -37,16 +36,17 @@
           @click="handlePause"
           :disabled="isSubmitting"
         >
-          <span v-if="isSubmitting">...</span>
+          <span v-if="isSubmitting">Pausando...</span>
           <span v-else>Pausar</span>
         </button>
+        
         <button
           v-if="isPaused"
           class="btn btn-resume"
           @click="handleResume"
           :disabled="isSubmitting"
         >
-          <span v-if="isSubmitting">...</span>
+          <span v-if="isSubmitting">Reanudando...</span>
           <span v-else>Reanudar</span>
         </button>
         
@@ -65,7 +65,7 @@
       :distanceKm="Number(route.distanceKm)"
       :durationSec="elapsedTime"
       :isFinishing="isFinishing"
-      @cancel="closeFinishModal"
+      :initialActivityType="execution?.activityType" @cancel="closeFinishModal"
       @save="handleFinish"
     />
   </div>
@@ -91,20 +91,19 @@ const execution = computed(() => session.activeExecution)
 const isPaused = computed(() => execution.value?.status === 'PAUSED')
 
 // Estado local de la UI
-const route = ref(null) // Detalles de la ruta (distancia, nombre)
-const isLoading = ref(true) // Cargando la ruta, no la ejecución
+const route = ref(null)
+const isLoading = ref(true)
 const error = ref('')
-const isSubmitting = ref(false) // Para Pausar/Reanudar
-const isFinishing = ref(false) // Para el modal de Finalizar
+const isSubmitting = ref(false)
+const isFinishing = ref(false)
 const showFinishModal = ref(false)
 
 // Estado del Cronómetro
-const elapsedTime = ref(0) // Tiempo transcurrido en SEGUNDOS
+const elapsedTime = ref(0)
 const timerInterval = ref(null)
 
 // --- LÓGICA DEL CRONÓMETRO ---
 
-/** Formatea segundos a HH:MM:SS */
 const formattedTime = computed(() => {
   const h = String(Math.floor(elapsedTime.value / 3600)).padStart(2, '0')
   const m = String(Math.floor((elapsedTime.value % 3600) / 60)).padStart(2, '0')
@@ -112,9 +111,6 @@ const formattedTime = computed(() => {
   return `${h}:${m}:${s}`
 })
 
-/**
- * Detiene el intervalo del cronómetro.
- */
 const stopTimer = () => {
   if (timerInterval.value) {
     clearInterval(timerInterval.value)
@@ -122,51 +118,48 @@ const stopTimer = () => {
   }
 }
 
-/**
- * Inicia el intervalo del cronómetro.
- * Llama a updateTimer() inmediatamente y luego cada segundo.
- */
 const startTimer = () => {
-  stopTimer() // Asegurarse de que no haya duplicados
-  updateTimer() // Actualizar inmediatamente
+  stopTimer()
+  updateTimer()
   timerInterval.value = setInterval(updateTimer, 1000)
 }
 
-/**
- * Función principal del cronómetro.
- * Calcula el tiempo transcurrido basándose en el estado de la ejecución.
- * [Cubre: "Mantener estado y contador tras recarga"]
- */
 const updateTimer = () => {
   if (!execution.value) return
 
   const now = new Date()
-  const startTime = new Date(execution.value.startTime)
-  const totalPausedSec = execution.value.totalPausedTimeSec || 0
+  
+  // [CAMBIO CLAVE 1] 
+  // Añadimos 'Z' para indicar que la hora del servidor viene en UTC.
+  // Esto arregla el bug de los 3600s si tu servidor está en la nube/docker.
+  // Si tu servidor y tu PC tienen la misma hora local, quita la 'Z'.
+  const startTime = new Date(execution.value.startTime + (execution.value.startTime.endsWith('Z') ? '' : 'Z'))
+  
+  const totalPausedSec = Number(execution.value.totalPausedTimeSec) || 0
+  
   let diffSec = 0
   
-  //
   if (execution.value.status === 'IN_PROGRESS') {
-    // Si está en progreso, el tiempo es (AHORA - INICIO - PAUSAS_ACUMULADAS)
-    const diffMs = now - startTime - (totalPausedSec * 1000)
-    diffSec = Math.floor(diffMs / 1000)
-
+    const totalMs = now - startTime
+    const totalSec = Math.floor(totalMs / 1000)
+    diffSec = Math.max(0, totalSec - totalPausedSec)
+    
   } else if (execution.value.status === 'PAUSED') {
-    // Si está pausado, el tiempo se congela en (PAUSE_TIME - INICIO - PAUSAS_ACUMULADAS)
-    // Nota: 'pauseTime' es la *última* vez que se pausó
-    const pauseTime = new Date(execution.value.pauseTime)
-    const diffMs = pauseTime - startTime - (totalPausedSec * 1000)
-    diffSec = Math.floor(diffMs / 1000)
-    stopTimer() // Asegurarse de que el intervalo esté detenido
+    // [CAMBIO CLAVE 2] Aplicar la misma lógica 'Z' al pauseTime
+    if (execution.value.pauseTime) {
+      const pauseTime = new Date(execution.value.pauseTime + (execution.value.pauseTime.endsWith('Z') ? '' : 'Z'))
+      const totalMs = pauseTime - startTime
+      const totalSec = Math.floor(totalMs / 1000)
+      diffSec = Math.max(0, totalSec - totalPausedSec)
+    }
   }
   
-  elapsedTime.value = Math.max(0, diffSec)
+  elapsedTime.value = diffSec
 }
 
 // --- CICLO DE VIDA Y WATCHERS ---
 
 onMounted(async () => {
-  // Guard clause: si no hay ejecución, no deberíamos estar aquí.
   if (!execution.value) {
     router.push('/home')
     return
@@ -174,9 +167,7 @@ onMounted(async () => {
   
   isLoading.value = true
   try {
-    // Cargar los detalles de la ruta (distancia, nombre)
     route.value = await getRoute(execution.value.routeId)
-    // Sincronizar el cronómetro
     initializeTimer()
   } catch (err) {
     error.value = 'No se pudieron cargar los datos de la ruta.'
@@ -186,41 +177,31 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  // Limpiar el intervalo al salir del componente
   stopTimer()
 })
 
-/**
- * Observa cambios en el estado de ejecución (ej: de PAUSED a IN_PROGRESS)
- * y reacciona iniciando o deteniendo el cronómetro.
- */
-watch(isPaused, (paused) => {
+watch(isPaused, () => {
   initializeTimer()
 })
 
-/** Sincroniza el estado del timer con el estado de la ejecución */
 const initializeTimer = () => {
+  // Si está pausado, detenemos el intervalo y calculamos una última vez el tiempo estático
   if (isPaused.value) {
     stopTimer()
+    updateTimer()
   } else {
     startTimer()
   }
-  // Actualizar el valor una vez
-  updateTimer()
 }
-
 
 // --- MANEJADORES DE ACCIONES ---
 
-/** [Issue: Pausar ejecución] */
 const handlePause = async () => {
   isSubmitting.value = true
   error.value = ''
   try {
-    // Llama a POST /api/v1/executions/pause/{id}
     const updatedExecution = await pauseExecution(execution.value.id)
-    // Actualiza el store de Pinia, lo que activará el 'watch'
-    session.activeExecution = updatedExecution
+    session.activeExecution = updatedExecution // Esto disparará el watch(isPaused)
   } catch (err) {
     error.value = 'Error al pausar la ejecución.'
   } finally {
@@ -228,15 +209,12 @@ const handlePause = async () => {
   }
 }
 
-/** [Issue: Reanudar ejecución] */
 const handleResume = async () => {
   isSubmitting.value = true
   error.value = ''
   try {
-    // Llama a POST /api/v1/executions/resume/{id}
     const updatedExecution = await resumeExecution(execution.value.id)
-    // Actualiza el store de Pinia, lo que activará el 'watch'
-    session.activeExecution = updatedExecution
+    session.activeExecution = updatedExecution // Esto disparará el watch(isPaused)
   } catch (err) {
     error.value = 'Error al reanudar la ejecución.'
   } finally {
@@ -244,22 +222,29 @@ const handleResume = async () => {
   }
 }
 
-/** [Issue: Finalizar ejecución] - Abre el modal */
-const openFinishModal = () => {
-  // Pausar la ejecución ANTES de mostrar el modal
+/* Asegurar consistencia al abrir modal */
+const openFinishModal = async () => {
+  // 1. Detenemos el timer visual inmediatamente para que el usuario vea el tiempo final
+  stopTimer()
+  
+  // 2. Si la ruta sigue en curso, la pausamos en el backend para que guarde el estado
   if (!isPaused.value) {
-    handlePause()
+    await handlePause()
   }
+  
+  // 3. Abrimos el modal con el estado pausado y el tiempo congelado
   showFinishModal.value = true
 }
 
 const closeFinishModal = () => {
   showFinishModal.value = false
+  // Si el usuario cancela y la ruta estaba pausada (siempre lo estará al abrir modal),
+  // decide si quieres reanudarla automáticamente o dejarla pausada.
+  // Lo estándar es dejarla pausada, pero reiniciar el timer visual si fuera necesario
+  // (aquí no hace falta porque está pausada).
 }
 
-/** [Issue: Finalizar ejecución] - Guarda el resumen */
 const handleFinish = async (payload) => {
-  // Payload es { activityType, notes }
   if (!payload.activityType) {
     error.value = "Debes seleccionar un tipo de actividad."
     return
@@ -269,17 +254,12 @@ const handleFinish = async (payload) => {
   error.value = ''
   
   try {
-    // Llama a POST /api/v1/executions/finish/{id}
-    const finishedExecution = await finishExecution(execution.value.id, payload)
-    
-    // Éxito: Limpiar el store y redirigir
+    await finishExecution(execution.value.id, payload)
+    router.push('/') 
     session.clearActiveExecution()
-    // voltar a Inicio
-    router.push('/home') 
-
   } catch (err) {
     error.value = 'Error al finalizar la ejecución.'
-    isFinishing.value = false // Mantener el modal abierto
+    isFinishing.value = false
   }
 }
 </script>
@@ -339,13 +319,18 @@ const handleFinish = async (payload) => {
   letter-spacing: 1px;
   color: #666;
 }
+
+/* --- CORRECCIÓN DE LAYOUT --- */
 .controls-section {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;           /* Usamos flex en lugar de grid */
+  flex-direction: column;  /* Botones apilados verticalmente */
   gap: 16px;
   margin-top: 16px;
+  width: 100%;
 }
+
 .btn {
+  width: 100%; /* Ocupar todo el ancho */
   padding: 16px;
   font-size: 16px;
   font-weight: 600;
@@ -358,25 +343,27 @@ const handleFinish = async (payload) => {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* --- CORRECCIÓN DE ESTILOS BOTÓN PAUSA --- */
 .btn-pause {
-  background: #fff;
-  color: #c0392b;
-  border: 2px solid #f1c40f;
+  background: #fff5e6;     /* Fondo amarillo muy suave */
+  color: #d35400;          /* Naranja oscuro / Marrón */
+  border: 2px solid #f39c12; /* Borde naranja */
 }
-.btn-pause:hover:not(:disabled) { background: #fdf5e0; }
+.btn-pause:hover:not(:disabled) { 
+  background: #fdebd0; 
+}
 
 .btn-resume {
   background: #2ecc71;
   color: white;
-  border: 2px solid #2ecc71;
+  /* border: none; Eliminamos border doble */
 }
-.btn-resume:hover:not(:disabled) { background: #28b463; }
+.btn-resume:hover:not(:disabled) { background: #27ae60; }
 
 .btn-finish {
-  grid-column: 1 / -1; /* Ocupa todo el ancho */
   background: #e74c3c;
   color: white;
-  border: 2px solid #e74c3c;
 }
 .btn-finish:hover:not(:disabled) { background: #c0392b; }
 </style>
