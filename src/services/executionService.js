@@ -6,7 +6,7 @@ import api from './api'
  * Devuelve TODAS las ejecuciones del usuario.
  */
 export const getMyExecutions = async () => {
-  const res = await api.get('/api/v1/executions')
+  const res = await api.get('/api/v1/executions/me')
   return res.data
 }
 
@@ -17,7 +17,7 @@ export const getMyExecutions = async () => {
  * @param {{ activityType: string, notes?: string }} payload
  */
 export const startExecution = async (routeId, payload) => {
-  const res = await api.post(`/api/v1/executions/start/${routeId}`, payload)
+  const res = await api.post(`/api/v1/executions/me/start/${routeId}`, payload)
   return res.data
 }
 
@@ -26,7 +26,7 @@ export const startExecution = async (routeId, payload) => {
  * POST /api/v1/executions/pause/{executionId}
  */
 export const pauseExecution = async (executionId) => {
-  const res = await api.post(`/api/v1/executions/pause/${executionId}`)
+  const res = await api.post(`/api/v1/executions/me/pause/${executionId}`)
   return res.data
 }
 
@@ -35,7 +35,7 @@ export const pauseExecution = async (executionId) => {
  * POST /api/v1/executions/resume/{executionId}
  */
 export const resumeExecution = async (executionId) => {
-  const res = await api.post(`/api/v1/executions/resume/${executionId}`)
+  const res = await api.post(`/api/v1/executions/me/resume/${executionId}`)
   return res.data
 }
 
@@ -45,6 +45,6 @@ export const resumeExecution = async (executionId) => {
  * @param {{ activityType: string, notes?: string }} payload
  */
 export const finishExecution = async (executionId, payload) => {
-  const res = await api.post(`/api/v1/executions/finish/${executionId}`, payload)
+  const res = await api.post(`/api/v1/executions/me/finish/${executionId}`, payload)
   return res.data
 }
