@@ -13,7 +13,7 @@ import api from './api'
  */
 export async function getRoutes() {
   try {
-    const res = await api.get("/api/v1/routes");
+    const res = await api.get("/api/v1/routes/me");
     return res.data;
   } catch (err) {
     // Propaga el error con el status para manejarlo en el componente
@@ -29,7 +29,7 @@ export async function getRoutes() {
  */
 export async function getRoute(id) {
   try {
-    const res = await api.get(`/api/v1/routes/${id}`);
+    const res = await api.get(`/api/v1/routes/me/${id}`);
     return res.data;
   } catch (err) {
     // Propaga el error con el status para manejarlo en el componente (e.g., 404)
@@ -47,7 +47,7 @@ export async function getRoute(id) {
  * @returns {Promise<Object>} Ruta creada
  */
 export async function createRoute(payload) {
-  const res = await api.post("/api/v1/routes", payload);
+  const res = await api.post("/api/v1/routes/me", payload);
   return res.data;
 }
 
@@ -61,7 +61,7 @@ export async function createRoute(payload) {
  * @returns {Promise<Object>} Ruta actualizada
  */
 export async function updateRoute(id, payload) {
-  const res = await api.put(`/api/v1/routes/${id}`, payload);
+  const res = await api.put(`/api/v1/routes/me/${id}`, payload);
   return res.data;
 }
 
@@ -71,6 +71,6 @@ export async function updateRoute(id, payload) {
  * @returns {Promise<Object>} Confirmación de eliminación
  */
 export async function deleteRoute(id) {
-  const res = await api.delete(`/api/v1/routes/${id}`);
+  const res = await api.delete(`/api/v1/routes/me/${id}`);
   return res.data;
 }
