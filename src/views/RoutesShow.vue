@@ -25,6 +25,16 @@
               </div>
             </div>
 
+            <div v-if="routeData.checkpoints && routeData.checkpoints.length > 0" class="checkpoints-readonly-section">
+              <h3>Paradas en ruta</h3>
+              <ul class="checkpoints-list">
+                <li v-for="(cp, index) in visibleCheckpoints" :key="cp.id || index">
+                  <span class="cp-index">{{ index + 1 }}</span>
+                  <span class="cp-name">{{ cp.name || `Checkpoint ${index + 1}` }}</span>
+                </li>
+              </ul>
+            </div>
+
             <div class="actions-row">
               <button
                 v-if="!session.activeExecution"
@@ -55,7 +65,7 @@
             <div class="start-modal-card">
               <h3>Iniciar Ruta</h3>
               <p>Selecciona el tipo de actividad para empezar.</p>
-              
+
               <div class="form-group">
                 <label for="activityType">Tipo de Actividad <span class="required">*</span></label>
                 <select v-model="selectedActivity" id="activityType">
@@ -90,7 +100,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch, nextTick, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import ConfirmModal from '@/components/ConfirmModal.vue'
 import { getRoute, deleteRoute } from '@/services/routesService'
@@ -124,6 +134,15 @@ const startError = ref('')
 let map = null
 let startMarker = null
 let endMarker = null
+let checkpointMarkers = null
+
+const visibleCheckpoints = computed(() => {
+  const list = routeData.value.checkpoints || []
+  return list.filter(cp => {
+    const coords = parseLatLngString(cp.point)
+    return coords !== null
+  })
+})
 
 function initMap() {
   if (!mapContainer.value) {
@@ -188,6 +207,8 @@ function loadMarkersOnMap() {
       .addTo(map)
   }
 
+  drawCheckpoints()
+
   updateRouteLine()
 }
 
@@ -232,7 +253,46 @@ function updateRouteLine() {
   bounds.extend([startLatLng.value.lng, startLatLng.value.lat])
   bounds.extend([endLatLng.value.lng, endLatLng.value.lat])
   map.fitBounds(bounds, { padding: 80 })
+
+  const list = routeData.value.checkpoints || []
+  list.forEach(cp => {
+    const cpCoords = parseLatLngString(cp.point)
+    if (cpCoords) {
+      bounds.extend([cpCoords.lng, cpCoords.lat])
+    }
+  })
+  map.fitBounds(bounds, { padding: 80 })
 }
+
+  function drawCheckpoints() {
+    if (checkpointMarkers && checkpointMarkers.length > 0) {
+      // Limpiar marcadores anteriores
+      checkpointMarkers.forEach(marker => marker.remove())
+    }
+
+    checkpointMarkers = []
+
+    const list = routeData.value.checkpoints || []
+    if (!Array.isArray(list) || list.length === 0 || !map) return
+
+    list.forEach((cp, index) => {
+      const cpCoords = parseLatLngString(cp.point)
+      if (!cpCoords) {
+        console.warn(`[RoutesShow] Checkpoint ${index} tiene coordenadas inválidas:`, cp.point)
+        return
+      }
+      const el = document.createElement('div')
+      el.className = 'custom-marker-mapbox checkpoint-marker-mapbox'
+      el.innerHTML = `<div class="marker-pin-mapbox checkpoint-pin-readonly">${index + 1}</div>`
+
+      const marker = new mapboxgl.Marker({ element: el })
+        .setLngLat([cpCoords.lng, cpCoords.lat])
+        .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(cp.name || `Checkpoint ${index + 1}`))
+        .addTo(map)
+
+      checkpointMarkers.push(marker)
+    })
+  }
 
 /**
  * Parsea un string "lat,lng" a un objeto { lat, lng }
@@ -346,7 +406,7 @@ const loadRoute = async () => {
   await load()
 }
 
-// Lógica para Iniciar Ejecución 
+// Lógica para Iniciar Ejecución
 const handleStartExecution = async () => {
   // --- ¡¡AÑADE ESTA LÍNEA AQUÍ!! ---
   console.log('Iniciando ejecución. Actividad seleccionada:', selectedActivity.value);
@@ -356,30 +416,30 @@ const handleStartExecution = async () => {
     startError.value = 'Debes seleccionar un tipo de actividad.'
     return
   }
-  
+
   isStarting.value = true
   startError.value = ''
-  
+
   try {
     const routeId = route.params.id
     // El DTO del backend requiere 'activityType'.
-    const payload = { 
+    const payload = {
       activityType: selectedActivity.value,
       notes: null // Las notas se piden al finalizar
-    } 
-    
+    }
+
     // 1. Llamar a la API
     const executionData = await startExecution(routeId, payload)
-    
+
     // 2. Guardar en el store de Pinia
     session.activeExecution = executionData
-    
+
     // 3. Redirigir a la vista de ejecución activa (Paso 3)
     router.push({ name: 'ActiveRun' })
-    
+
   } catch (err) {
     const apiError = err.response?.data?.message || 'Error al iniciar la ejecución.'
-    
+
     // Sincronizar por si el error es que ya hay una en curso
     if (apiError.includes("IN_PROGRESS") || apiError.includes("en curso")) {
       startError.value = "Ya tienes otra ejecución en curso."
@@ -395,7 +455,7 @@ const handleStartExecution = async () => {
 onMounted(() => {
   // 1. Cargar los datos de la ruta
   loadRoute()
-  
+
   // 2. Sincronizar estado de ejecución (refuerzo)
   if (session.token && !session.isCheckingExecution) {
     session.fetchActiveExecution()
@@ -521,6 +581,27 @@ onBeforeUnmount(() => {
   border: 3px solid #fff;
   box-shadow: 0 3px 10px rgba(197, 48, 48, 0.5);
 }
+
+:global(.checkpoint-pin-readonly) {
+  background: #ed8936;
+  border: 3px solid #fff;
+  box-shadow: 0 3px 10px rgba(237, 137, 54, 0.4);
+  color: #fff;
+  font-size: 14px;
+  line-height: 24px;
+  text-align: center;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.checkpoints-readonly-section { margin-top: 20px; border-top: 1px solid #eee; padding-top: 16px; }
+.checkpoints-readonly-section h3 { margin: 0 0 12px 0; font-size: 16px; font-weight: 600; }
+.checkpoints-list { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 12px; }
+.checkpoints-list li { display: flex; align-items: center; gap: 8px; background: #f8fafc; padding: 6px 12px; border-radius: 20px; border: 1px solid #e2e8f0; }
+.cp-index { background: #ed8936; color: #fff; font-size: 10px; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.cp-name { font-size: 14px; font-weight: 500; color: #334155; }
 
 .coords {
   display: flex;
@@ -699,7 +780,7 @@ onBeforeUnmount(() => {
   .map-area {
     height: 350px;
   }
-  
+
   /* [NUEVO] Ajuste responsive para el botón de iniciar */
   .btn.btn-primary-start {
     order: -1; /* Mantiene el botón de iniciar arriba en móvil */

@@ -25,6 +25,9 @@
                   <label>
                     <input type="radio" value="end" v-model="mode" /> Fin
                   </label>
+                  <label>
+                    <input type="radio" value="checkpoint" v-model="mode" /> Parada
+                  </label>
                   <button type="button" class="btn ghost small" @click="clearPoints">Limpiar puntos</button>
                 </div>
               </div>
@@ -36,6 +39,40 @@
                 <div>Inicio: <strong v-if="startLatLng">{{ startLatLng.lat.toFixed(5) }}, {{ startLatLng.lng.toFixed(5) }}</strong><span v-else> — no seleccionado</span></div>
                 <div>Fin: <strong v-if="endLatLng">{{ endLatLng.lat.toFixed(5) }}, {{ endLatLng.lng.toFixed(5) }}</strong><span v-else> — no seleccionado</span></div>
               </div>
+            </div>
+
+            <div class="form-row checkpoints-section">
+              <div class="section-title">
+                <label>Checkpoints (Opcional)</label>
+                <span class="badge" v-if="checkpoints.length > 0">{{ checkpoints.length }}</span>
+              </div>
+
+              <div v-if="checkpoints.length > 0" class="checkpoints-list">
+                <div v-for="(cp, index) in checkpoints" :key="index" class="checkpoint-row">
+                  <div class="cp-number">{{ index + 1 }}</div>
+
+                  <input
+                    ref="checkpointInputs"
+                    type="text"
+                    v-model="cp.name"
+                    placeholder="Nombre de la parada"
+                    class="cp-input"
+                  />
+
+                  <div class="cp-status" :title="cp.lat ? 'Ubicación marcada' : 'Falta ubicación'">
+                    <span v-if="cp.lat">📍</span>
+                    <span v-else class="missing-geo">⚠️</span>
+                  </div> <!-- TODO: cambiar emojis -->
+
+                  <button type="button" class="btn-icon danger" @click="removeCheckpoint(index)" title="Quitar parada">
+                    &times;
+                  </button>
+                </div>
+              </div>
+
+              <button type="button" class="btn dashed" @click="addManualCheckpoint">
+                + Añadir parada manualmente
+              </button>
             </div>
 
             <div class="form-row">
@@ -58,7 +95,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { createRoute } from '@/services/routesService'
 import mapboxgl from 'mapbox-gl'
@@ -73,10 +110,13 @@ const endLatLng = ref(null)
 const saving = ref(false)
 const error = ref('')
 const mapContainer = ref(null)
+const checkpoints = ref([])
+const checkpointInputs = ref([])
 
 let map = null
 let startMarker = null
 let endMarker = null
+let checkpointMarkers = []
 
 function initMap() {
   if (!mapContainer.value) return
@@ -115,9 +155,11 @@ function onMapClick(e) {
   if (mode.value === 'start') {
     startLatLng.value = { lat, lng }
     updateStartMarker()
-  } else {
+  } else if (mode.value === 'end') {
     endLatLng.value = { lat, lng }
     updateEndMarker()
+  } else if (mode.value === 'checkpoint') {
+    addCheckpointsFromMap(lat, lng)
   }
 
   updateRouteLine()
@@ -154,6 +196,52 @@ function updateEndMarker() {
     .setPopup(new mapboxgl.Popup({ offset: 25 }).setText('Fin'))
     .addTo(map)
 }
+
+function addCheckpointsFromMap(lat, lng) {
+  checkpoints.value.push({ name: '', lat, lng })
+  drawCheckpoints()
+  focusLastCheckpointInput()
+}
+
+async function addManualCheckpoint() {
+  checkpoints.value.push({ name: '', lat: null, lng: null })
+  await focusLastCheckpointInput()
+}
+
+function removeCheckpoint(index) {
+  checkpoints.value.splice(index, 1)
+  drawCheckpoints()
+}
+
+function drawCheckpoints() {
+  if (!map) return
+  checkpointMarkers.forEach(m => m.remove())
+  checkpointMarkers = []
+
+  checkpoints.value.forEach((cp, index) => {
+    if (cp.lat && cp.lng) {
+      const el = document.createElement('div')
+      el.className = 'custom-marker-mapbox checkpoint-marker-mapbox'
+      el.innerHTML = `<div class="marker-pin-mapbox checkpoint-pin-mapbox">${index + 1}</div>`
+
+      const marker = new mapboxgl.Marker({ element: el })
+        .setLngLat([cp.lng, cp.lat])
+        .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(`Parada ${index + 1}`))
+        .addTo(map)
+
+      checkpointMarkers.push(marker)
+    }
+  })
+}
+
+async function focusLastCheckpointInput() {
+  await nextTick()
+  const inputs = checkpointInputs.value
+  if (inputs && inputs.length > 0) {
+    inputs[inputs.length - 1].focus()
+  }
+}
+
 
 function updateRouteLine() {
   if (map.getSource('route')) {
@@ -201,7 +289,9 @@ function updateRouteLine() {
 function clearPoints() {
   startLatLng.value = null
   endLatLng.value = null
+  checkpoints.value = []
 
+  drawCheckpoints()
   if (startMarker) {
     startMarker.remove()
     startMarker = null
@@ -435,6 +525,31 @@ onBeforeUnmount(() => {
   border: 3px solid #fff;
   box-shadow: 0 3px 10px rgba(197, 48, 48, 0.5);
 }
+
+:global(.checkpoint-pin-mapbox) {
+  background: #ed8936;
+  border: 3px solid #fff;
+  box-shadow: 0 3px 10px rgba(237, 137, 54, 0.4);
+  color: #fff;
+  font-size: 14px;
+  line-height: 24px;
+  text-align: center;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.checkpoints-section { background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #f1f5f9; }
+.section-title { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.badge { background: #e2e8f0; color: #475569; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 99px; }
+.checkpoints-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.checkpoint-row { display: flex; align-items: center; gap: 10px; background: #fff; padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0; transition: border 0.2s; }
+.checkpoint-row:focus-within { border-color: #8b5cf6; }
+.cp-number { width: 24px; height: 24px; background: #8b5cf6; color: #fff; font-size: 12px; font-weight: 700; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.cp-input { border: none !important; padding: 4px 0 !important; font-size: 14px !important; background: transparent !important; }
+.cp-status { font-size: 14px; cursor: help; }
+.missing-geo { opacity: 0.5; filter: grayscale(100%); }
 
 .coords {
   display: flex;
