@@ -66,7 +66,7 @@
                   <div class="cp-status" :title="cp.lat ? 'Ubicación marcada' : 'Falta ubicación'">
                     <span v-if="cp.lat">📍</span>
                     <span v-else class="missing-geo">⚠️</span>
-                  </div> <!-- TODO: cambiar emojis -->
+                  </div>
 
                   <button type="button" class="btn-icon danger" @click.stop="removeCheckpoint(index)" title="Quitar parada">
                     &times;
