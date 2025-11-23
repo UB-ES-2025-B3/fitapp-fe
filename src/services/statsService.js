@@ -8,7 +8,7 @@ export async function getStats({ metric, period = '30d' }) {
 
     const points = res.data?.points || []
     return points.map(p => {
-      // Excluir 'date' y tomar el primer valor numérico que encuentre esto para poder generalizar los diferentes nombres de stats que pueda devolver la API
+      // Excluir 'date' y tomar el primer valor numérico que encuentre. Esto es para poder generalizar los diferentes nombres de stats que pueda devolver la API
       const value = Object.entries(p)
         .filter(([key]) => key !== 'date')
         .map(([, val]) => val)
