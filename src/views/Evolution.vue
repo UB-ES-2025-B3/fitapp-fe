@@ -136,7 +136,6 @@ async function fetchData() {
   try {
 
     const data = await getStats({ metric: 'kcal', period: '30d' })
-    console.log(data)
     rawData.value = Array.isArray(data) ? data : []
   } catch (err) {
     console.error(err)
