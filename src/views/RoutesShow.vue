@@ -269,35 +269,35 @@ function updateRouteLine() {
   map.fitBounds(bounds, { padding: 80 })
 }
 
-  function drawCheckpoints() {
-    if (checkpointMarkers && checkpointMarkers.length > 0) {
-      // Limpiar marcadores anteriores
-      checkpointMarkers.forEach(marker => marker.remove())
-    }
-
-    checkpointMarkers = []
-
-    const list = routeData.value.checkpoints || []
-    if (!Array.isArray(list) || list.length === 0 || !map) return
-
-    list.forEach((cp, index) => {
-      const cpCoords = parseLatLngString(cp.point)
-      if (!cpCoords) {
-        console.warn(`[RoutesShow] Checkpoint ${index} tiene coordenadas inválidas:`, cp.point)
-        return
-      }
-      const el = document.createElement('div')
-      el.className = 'custom-marker-mapbox checkpoint-marker-mapbox'
-      el.innerHTML = `<div class="marker-pin-mapbox checkpoint-pin-readonly">${index + 1}</div>`
-
-      const marker = new mapboxgl.Marker({ element: el })
-        .setLngLat([cpCoords.lng, cpCoords.lat])
-        .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(cp.name || `Checkpoint ${index + 1}`))
-        .addTo(map)
-
-      checkpointMarkers.push(marker)
-    })
+function drawCheckpoints() {
+  if (checkpointMarkers && checkpointMarkers.length > 0) {
+    // Limpiar marcadores anteriores
+    checkpointMarkers.forEach(marker => marker.remove())
   }
+
+  checkpointMarkers = []
+
+  const list = routeData.value.checkpoints || []
+  if (!Array.isArray(list) || list.length === 0 || !map) return
+
+  list.forEach((cp, index) => {
+    const cpCoords = parseLatLngString(cp.point)
+    if (!cpCoords) {
+      console.warn(`[RoutesShow] Checkpoint ${index} tiene coordenadas inválidas:`, cp.point)
+      return
+    }
+    const el = document.createElement('div')
+    el.className = 'custom-marker-mapbox checkpoint-marker-mapbox'
+    el.innerHTML = `<div class="marker-pin-mapbox checkpoint-pin-mapbox">${index + 1}</div>`
+
+    const marker = new mapboxgl.Marker({ element: el })
+      .setLngLat([cpCoords.lng, cpCoords.lat])
+      .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(cp.name || `Checkpoint ${index + 1}`))
+      .addTo(map)
+
+    checkpointMarkers.push(marker)
+  })
+}
 
 /**
  * Parsea un string "lat,lng" a un objeto { lat, lng }
@@ -587,7 +587,7 @@ onBeforeUnmount(() => {
   box-shadow: 0 3px 10px rgba(197, 48, 48, 0.5);
 }
 
-:global(.checkpoint-pin-readonly) {
+:global(.checkpoint-pin-mapbox) {
   background: #ed8936;
   border: 3px solid #fff;
   box-shadow: 0 3px 10px rgba(237, 137, 54, 0.4);
