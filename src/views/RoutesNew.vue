@@ -167,7 +167,6 @@ function onMapClick(e) {
     if (selectedCheckpointIndex.value !== null) {
       checkpoints.value[selectedCheckpointIndex.value].lat = lat
       checkpoints.value[selectedCheckpointIndex.value].lng = lng
-      //focusLastCheckpointInput()
     } else {
       addCheckpointsFromMap(lat, lng)
       selectedCheckpointIndex.value = checkpoints.value.length - 1
