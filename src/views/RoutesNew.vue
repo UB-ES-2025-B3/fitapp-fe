@@ -213,7 +213,6 @@ function updateEndMarker() {
 function addCheckpointsFromMap(lat, lng) {
   checkpoints.value.push({ name: '', lat, lng })
   drawCheckpoints()
-  // (Quitado) focusLastCheckpointInput() para no forzar scroll al mapa
 }
 
 async function addManualCheckpoint() {
