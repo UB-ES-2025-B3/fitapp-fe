@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+import { mount, RouterLinkStub } from '@vue/test-utils'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Mocks para los servicios usados por Home
@@ -28,7 +28,7 @@ describe('Home KPIs - calorías con objetivo', () => {
     getHomeKpis.mockImplementation(() => new Promise(() => {}))
     getProfile.mockResolvedValue({ firstName: 'A' })
 
-    const wrapper = mount(Home, { global: { stubs: ['router-link'] } })
+    const wrapper = mount(Home, { global: { stubs: { RouterLink: RouterLinkStub } } })
 
     // El contenedor de loading debe existir
     expect(wrapper.find('.loading-container').exists()).toBe(true)
@@ -40,7 +40,7 @@ describe('Home KPIs - calorías con objetivo', () => {
     getHomeKpis.mockRejectedValue(err)
     getProfile.mockResolvedValue({ firstName: 'A' })
 
-    const wrapper = mount(Home, { global: { stubs: ['router-link'] } })
+    const wrapper = mount(Home, { global: { stubs: { RouterLink: RouterLinkStub } } })
   // Esperar a que las promesas se procesen
   await flushPromises()
   await wrapper.vm.$nextTick()
@@ -64,7 +64,7 @@ describe('Home KPIs - calorías con objetivo', () => {
     getHomeKpis.mockResolvedValue(kpis)
     getProfile.mockResolvedValue({ firstName: 'A' })
 
-    const wrapper = mount(Home, { global: { stubs: ['router-link'] } })
+    const wrapper = mount(Home, { global: { stubs: { RouterLink: RouterLinkStub } } })
   await flushPromises()
   await wrapper.vm.$nextTick()
 
@@ -95,14 +95,19 @@ describe('Home KPIs - calorías con objetivo', () => {
     getHomeKpis.mockResolvedValue(kpis)
     getProfile.mockResolvedValue({ firstName: 'A' })
 
-    const wrapper = mount(Home, { global: { stubs: ['router-link'] } })
+    const wrapper = mount(Home, { global: { stubs: { RouterLink: RouterLinkStub } } })
   await flushPromises()
   await wrapper.vm.$nextTick()
 
     // Cuando no hay objetivo, debe mostrarse la CTA para definirlo
     const cta = wrapper.find('.define-goal-cta')
     expect(cta.exists()).toBe(true)
-    expect(cta.attributes('to') || cta.props('to')).toBe('/profile')
+    // Buscar el componente stub real para acceder a props
+    const linkStub = wrapper.findAllComponents(RouterLinkStub).find(c => c.classes().includes('define-goal-cta'))
+    expect(linkStub).toBeTruthy()
+    const toProp = linkStub.props('to')
+    // Debe ser objeto con path y query
+    expect(toProp).toMatchObject({ path: '/profile', query: { focus: 'goal' } })
   })
 
   it('después de guardar objetivo en Perfil, Home refleja "X / Y Kcal" en el siguiente fetch', async () => {
@@ -128,7 +133,7 @@ describe('Home KPIs - calorías con objetivo', () => {
     getHomeKpis.mockResolvedValueOnce(kpis0).mockResolvedValueOnce(kpis1)
     getProfile.mockResolvedValue({ firstName: 'A' })
 
-    const wrapper = mount(Home, { global: { stubs: ['router-link'] } })
+    const wrapper = mount(Home, { global: { stubs: { RouterLink: RouterLinkStub } } })
     await flushPromises()
     await wrapper.vm.$nextTick()
 

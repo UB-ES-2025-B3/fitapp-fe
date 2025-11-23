@@ -7,6 +7,20 @@ vi.mock('@/services/authService', () => {
   return { getProfile, updateProfile }
 })
 
+vi.mock('vue-router', async (importOriginal) => {
+  const actual = await importOriginal()
+  const push = vi.fn()
+  return {
+    ...actual, 
+    useRouter: () => ({ push }),
+    useRoute: () => ({ 
+      params: { id: 'r1' },
+      query: {} // <--- ESTO EVITA EL ERROR "Cannot read properties of undefined (reading 'query')"
+    }),
+    __push: push
+  }
+})
+
 import Profile from '@/views/Profile.vue'
 import { getProfile, updateProfile } from '@/services/authService'
 
