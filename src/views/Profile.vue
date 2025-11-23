@@ -139,11 +139,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, nextTick} from "vue";
 import { useSessionStore } from "@/stores/session.js";
 import { getProfile, updateProfile } from "@/services/authService.js";
 import KpiCard from '@/components/KpiCard.vue'
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
+
+const route = useRoute()
 
 let session
 try {
@@ -262,8 +264,16 @@ const loadProfile = async () => {
   }
 };
 
-onMounted(() => {
-  loadProfile();
+onMounted(async () => {
+  await loadProfile();
+  if (route.query.focus === 'goal') {
+    await nextTick()
+    const el = document.getElementById('goalKcal')
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.focus()
+    }
+  }
 });
 
 // Validación local del formulario antes de enviar PUT
@@ -522,6 +532,15 @@ const changePassword = async () => {
   border: 1px solid #e6e6e6;
 }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.password-card {
+  grid-column: 2; /* Fuerza a ocupar la segunda columna */
+}
+
+@media (max-width: 920px) {
+  .profile-grid { grid-template-columns: 1fr; }
+  .password-card { grid-column: auto; } /* Reset en móvil */
+}
 
 @media (max-width: 920px) {
   .profile-grid { grid-template-columns: 1fr; }
