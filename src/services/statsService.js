@@ -1,5 +1,12 @@
 import api from './api'
 
+/**
+ * Get statistics/evolution data for a specific metric and period
+ * @param {Object} params - Query parameters
+ * @param {string} params.metric - The metric to retrieve (e.g., 'kcal')
+ * @param {string} [params.period='30d'] - The time period for the data
+ * @returns {Promise<Array<{date: string, value: number}>>} Array of data points
+ */
 export async function getStats({ metric, period = '30d' }) {
   try {
     const res = await api.get('/api/v1/stats/evolution', {
