@@ -268,7 +268,10 @@ function drawCheckpoints() {
   })
 }
 
-// Reemplazo: soporta evitar scroll si se necesitara en el futuro
+/**
+ * Focuses the last checkpoint input field in the DOM.
+ * Uses nextTick to ensure the input elements are rendered before focusing.
+ */
 async function focusLastCheckpointInput() {
   await nextTick()
   const inputs = checkpointInputs.value
