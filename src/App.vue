@@ -4,7 +4,7 @@
     <header v-if="!hideNav" class="navbar">
       <div class="nav-container">
         <router-link to="/" class="logo">
-          <img src="/logo_secundario.webp" alt="logo" />
+          <img src="/logo_principal.svg" alt="logo" />
           FitApp
         </router-link>
 
