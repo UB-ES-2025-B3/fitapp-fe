@@ -73,7 +73,12 @@ const routes = [
     path: '/run/active',
     name: 'ActiveRun',
     component: () => import('@/views/ActiveRun.vue'),
-    meta: { requiresAuth: true } 
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/evolution',
+    name: 'Evolution',
+    component: () => import('@/views/Evolution.vue')
   }
 ]
 
