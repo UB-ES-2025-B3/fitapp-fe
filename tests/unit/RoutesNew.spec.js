@@ -59,6 +59,39 @@ describe('RoutesNew.vue — Criterios de aceptación de creación de rutas', () 
 		expect(createRoute).not.toHaveBeenCalled()
 	})
 
+	it('Validación - paradas requieren nombre', async () => {
+		const wrapper = mount(RoutesNew, { global: { stubs: ['router-link'] } })
+		// Setear nombre, inicio y fin para pasar validaciones previas
+		await wrapper.find('input[type="text"]').setValue('Ruta con paradas')
+		wrapper.vm.startLatLng = { lat: 41.38, lng: 2.17 }
+		wrapper.vm.endLatLng = { lat: 41.39, lng: 2.18 }
+		// Añadir parada manual sin nombre
+		await wrapper.find('button.btn.dashed').trigger('click')
+		await wrapper.vm.$nextTick()
+		// Submit
+		await wrapper.find('form').trigger('submit.prevent')
+		await Promise.resolve()
+		expect(wrapper.vm.error).toBe('Todas las paradas deben tener un nombre.')
+		expect(createRoute).not.toHaveBeenCalled()
+	})
+
+	it('Validación - paradas requieren ubicación', async () => {
+		const wrapper = mount(RoutesNew, { global: { stubs: ['router-link'] } })
+		await wrapper.find('input[type="text"]').setValue('Ruta con paradas')
+		wrapper.vm.startLatLng = { lat: 41.38, lng: 2.17 }
+		wrapper.vm.endLatLng = { lat: 41.39, lng: 2.18 }
+		// Añadir parada manual y darle nombre sin coordenadas
+		await wrapper.find('button.btn.dashed').trigger('click')
+		await wrapper.vm.$nextTick()
+		const cpInput = wrapper.find('.checkpoint-row .cp-input')
+		await cpInput.setValue('Parada 1')
+		// Submit
+		await wrapper.find('form').trigger('submit.prevent')
+		await Promise.resolve()
+		expect(wrapper.vm.error).toBe('Todas las paradas deben tener una ubicación marcada en el mapa.')
+		expect(createRoute).not.toHaveBeenCalled()
+	})
+
 	// POST: la distancia la calcula el backend y el campo es solo lectura
 	it('POST: la distancia la calcula el backend y el campo es solo lectura', async () => {
 			// Simular que el backend devuelve distanceMeters usando setTimeout(0)
