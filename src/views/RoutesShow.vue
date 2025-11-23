@@ -605,12 +605,7 @@ onBeforeUnmount(() => {
   line-height: 30px;
 }
 
-.checkpoints-readonly-section { margin-top: 20px; border-top: 1px solid #eee; padding-top: 16px; }
-.checkpoints-readonly-section h3 { margin: 0 0 12px 0; font-size: 16px; font-weight: 600; }
 .checkpoints-list { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 12px; }
-.checkpoints-list li { display: flex; align-items: center; gap: 8px; background: #f8fafc; padding: 6px 12px; border-radius: 20px; border: 1px solid #e2e8f0; }
-.cp-index { background: #ed8936; color: #fff; font-size: 10px; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-.cp-name { font-size: 14px; font-weight: 500; color: #334155; }
 
 .coords {
   display: flex;
