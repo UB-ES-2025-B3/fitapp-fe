@@ -169,10 +169,25 @@ function initMap() {
   })
 }
 
+/**
+ * Parsea un string "lat,lng" a un objeto { lat, lng }
+ * @param {string} str
+ * @returns {Object|null}
+ */
 function parseLatLngString(str) {
-  if (typeof str !== 'string' || !str.includes(',')) return null
-  const [lat, lng] = str.split(',').map(Number)
-  return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null
+  if (typeof str !== 'string' || !str.includes(',')) {
+    return null
+  }
+  const parts = str.split(',')
+  if (parts.length !== 2) return null
+
+  const lat = parseFloat(parts[0])
+  const lng = parseFloat(parts[1])
+
+  if (isNaN(lat) || isNaN(lng)) {
+    return null
+  }
+  return { lat, lng }
 }
 
 function onMapClick(e) {
