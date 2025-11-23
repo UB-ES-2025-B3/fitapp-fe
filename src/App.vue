@@ -17,8 +17,12 @@
 
               <router-link
               class="nav-link"
-              :to="{ name: 'RoutesList' }" 
+              :to="{ name: 'RoutesList' }"
               >Rutas</router-link>
+              <router-link
+              class="nav-link"
+              :to="{ name: 'Evolution' }"
+              >Evolución</router-link>
               <router-link
               class="nav-link"
               to="/profile"
