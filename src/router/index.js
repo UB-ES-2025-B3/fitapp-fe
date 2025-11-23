@@ -78,7 +78,8 @@ const routes = [
   {
     path: '/evolution',
     name: 'Evolution',
-    component: () => import('@/views/Evolution.vue')
+    component: () => import('@/views/Evolution.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 
