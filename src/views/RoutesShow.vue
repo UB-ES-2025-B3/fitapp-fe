@@ -25,6 +25,26 @@
               </div>
             </div>
 
+            <div v-if="visibleCheckpoints.length" class="form-row checkpoints-section">
+              <div class="section-title">
+                <label>Checkpoints</label>
+                <span class="badge">{{ visibleCheckpoints.length }}</span>
+              </div>
+              <div class="checkpoints-list readonly">
+                <div
+                  v-for="(cp, index) in visibleCheckpoints"
+                  :key="cp.id || index"
+                  class="checkpoint-row readonly"
+                >
+                  <div class="cp-number">{{ index + 1 }}</div>
+                  <div class="cp-info">
+                    <p class="cp-name">{{ cp.name || `Checkpoint ${index + 1}` }}</p>
+                    <p class="cp-coords">{{ cp.coords.lat.toFixed(5) }}, {{ cp.coords.lng.toFixed(5) }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div class="actions-row">
               <button
                 v-if="!session.activeExecution"
@@ -90,7 +110,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch, nextTick, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import ConfirmModal from '@/components/ConfirmModal.vue'
 import { getRoute, deleteRoute } from '@/services/routesService'
@@ -136,6 +156,17 @@ const startError = ref('')
 let map = null
 let startMarker = null
 let endMarker = null
+let checkpointMarkers = null
+
+const visibleCheckpoints = computed(() => {
+  return (routeData.value.checkpoints || [])
+    .map(cp => {
+      const coords = parseLatLngString(cp.point)
+      if (!coords) return null
+      return { ...cp, coords }
+    })
+    .filter(Boolean)
+})
 
 function initMap() {
   if (!mapContainer.value) {
@@ -200,6 +231,8 @@ function loadMarkersOnMap() {
       .addTo(map)
   }
 
+  drawCheckpoints()
+
   updateRouteLine()
 }
 
@@ -211,16 +244,19 @@ function updateRouteLine() {
     map.removeSource('route')
   }
 
+  const routeCoordinates = [
+    [startLatLng.value.lng, startLatLng.value.lat],
+    ...visibleCheckpoints.value.map(cp => [cp.coords.lng, cp.coords.lat]),
+    [endLatLng.value.lng, endLatLng.value.lat]
+  ]
+
   map.addSource('route', {
     type: 'geojson',
     data: {
       type: 'Feature',
       geometry: {
         type: 'LineString',
-        coordinates: [
-          [startLatLng.value.lng, startLatLng.value.lat],
-          [endLatLng.value.lng, endLatLng.value.lat]
-        ]
+        coordinates: routeCoordinates
       }
     }
   })
@@ -241,9 +277,38 @@ function updateRouteLine() {
   })
 
   const bounds = new mapboxgl.LngLatBounds()
-  bounds.extend([startLatLng.value.lng, startLatLng.value.lat])
-  bounds.extend([endLatLng.value.lng, endLatLng.value.lat])
+  routeCoordinates.forEach(coord => bounds.extend(coord))
   map.fitBounds(bounds, { padding: 80 })
+}
+
+function drawCheckpoints() {
+  if (checkpointMarkers && checkpointMarkers.length > 0) {
+    // Limpiar marcadores anteriores
+    checkpointMarkers.forEach(marker => marker.remove())
+  }
+
+  checkpointMarkers = []
+
+  const list = routeData.value.checkpoints || []
+  if (!Array.isArray(list) || list.length === 0 || !map) return
+
+  list.forEach((cp, index) => {
+    const cpCoords = parseLatLngString(cp.point)
+    if (!cpCoords) {
+      console.warn(`[RoutesShow] Checkpoint ${index} tiene coordenadas inválidas:`, cp.point)
+      return
+    }
+    const el = document.createElement('div')
+    el.className = 'custom-marker-mapbox checkpoint-marker-mapbox'
+    el.innerHTML = `<div class="marker-pin-mapbox checkpoint-pin-mapbox">${index + 1}</div>`
+
+    const marker = new mapboxgl.Marker({ element: el })
+      .setLngLat([cpCoords.lng, cpCoords.lat])
+      .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(cp.name || `Checkpoint ${index + 1}`))
+      .addTo(map)
+
+    checkpointMarkers.push(marker)
+  })
 }
 
 /**
@@ -534,6 +599,26 @@ onBeforeUnmount(() => {
   box-shadow: 0 3px 10px rgba(197, 48, 48, 0.5);
 }
 
+:global(.checkpoint-pin-mapbox) {
+  background: #ed8936;
+  border: 3px solid #fff;
+  box-shadow: 0 3px 10px rgba(237, 137, 54, 0.4);
+  color: #fff;
+  font-size: 14px;
+  text-align: center;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  line-height: 30px;
+}
+
+.checkpoints-list { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 12px; }
+
 .coords {
   display: flex;
   gap: 20px;
@@ -692,6 +777,70 @@ onBeforeUnmount(() => {
   justify-content: flex-end;
   gap: 12px;
   margin-top: 24px;
+}
+
+.checkpoints-section {
+  background: #f8fafc;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #f1f5f9;
+  margin-top: 20px;
+}
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.badge {
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 99px;
+}
+.checkpoints-list.readonly {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.checkpoint-row.readonly {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+.cp-number {
+  width: 24px;
+  height: 24px;
+  background: #ed8936;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.cp-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cp-name {
+  margin: 0;
+  font-weight: 600;
+  color: #1f2937;
+}
+.cp-coords {
+  margin: 0;
+  font-size: 12px;
+  color: #6b7280;
 }
 
 @media (max-width: 720px) {

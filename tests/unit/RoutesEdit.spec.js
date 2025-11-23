@@ -158,4 +158,54 @@ describe('RoutesEdit.vue — Edición de rutas (criterios de aceptación)', () =
     expect(wrapper.vm.saving).toBe(false)
     expect(wrapper.vm.error).toBe('Update failed')
   })
+
+  // 6) Validación de paradas: cada parada debe tener nombre.
+  it('Validación - paradas requieren nombre', async () => {
+    getRoute.mockResolvedValue({
+      id: 'r1',
+      name: 'Ruta base',
+      start: { lat: 41.38, lng: 2.17 },
+      end: { lat: 41.39, lng: 2.18 }
+    })
+    const wrapper = mount(RoutesEdit, { global: { stubs: ['router-link'] } })
+    await Promise.resolve()
+    await wrapper.vm.$nextTick()
+
+    // Añadir parada sin nombre (botón "Añadir parada manualmente")
+    await wrapper.find('button.btn.dashed').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    // Submit debe fallar por nombre vacío
+    await wrapper.find('form').trigger('submit.prevent')
+    await Promise.resolve()
+    expect(wrapper.vm.error).toBe('Todas las paradas deben tener un nombre.')
+    expect(updateRoute).not.toHaveBeenCalled()
+  })
+
+  // 7) Validación de paradas: si tienen nombre deben tener ubicación.
+  it('Validación - paradas requieren ubicación', async () => {
+    getRoute.mockResolvedValue({
+      id: 'r1',
+      name: 'Ruta base',
+      start: { lat: 41.38, lng: 2.17 },
+      end: { lat: 41.39, lng: 2.18 }
+    })
+    const wrapper = mount(RoutesEdit, { global: { stubs: ['router-link'] } })
+    await Promise.resolve()
+    await wrapper.vm.$nextTick()
+
+    // Crear parada manual
+    await wrapper.find('button.btn.dashed').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    // Asignar nombre pero no coordenadas
+    const cpInput = wrapper.find('.checkpoint-row .cp-input')
+    await cpInput.setValue('Parada 1')
+
+    // Submit debe fallar por falta de lat/lng
+    await wrapper.find('form').trigger('submit.prevent')
+    await Promise.resolve()
+    expect(wrapper.vm.error).toBe('Todas las paradas deben tener una ubicación marcada en el mapa.')
+    expect(updateRoute).not.toHaveBeenCalled()
+  })
 })
