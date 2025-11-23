@@ -227,8 +227,6 @@ function scrollToMap(padding = 165) {
   const rect = mapContainer.value.getBoundingClientRect()
   const targetY = rect.top + window.scrollY - padding
   window.scrollTo({ top: targetY, behavior: 'smooth' })
-  // Alternativa simple:
-  // mapContainer.value.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
 
 function removeCheckpoint(index) {
