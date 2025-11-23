@@ -11,8 +11,8 @@
           <div v-if="loading" class="center">Cargando...</div>
           <div v-else-if="error" class="error-box">{{ error }}</div>
           <div v-else>
-            <h2>{{ routeData.name }}</h2>
-            <p>Distancia: {{ routeData.distanceKm ? Number(routeData.distanceKm).toFixed(2) + ' km' : '-' }}</p>
+            <h2>{{ routeData?.name || '' }}</h2>
+            <p>Distancia: {{ (routeData?.distanceKm ? Number(routeData.distanceKm).toFixed(2) + ' km' : (routeData?.distanceMeters ? (Number(routeData.distanceMeters)/1000).toFixed(2) + ' km' : '-')) }}</p>
 
             <div class="form-row">
               <label>Mapa de la ruta</label>
@@ -55,7 +55,7 @@
             <div class="start-modal-card">
               <h3>Iniciar Ruta</h3>
               <p>Selecciona el tipo de actividad para empezar.</p>
-              
+
               <div class="form-group">
                 <label for="activityType">Tipo de Actividad <span class="required">*</span></label>
                 <select v-model="selectedActivity" id="activityType">
@@ -115,7 +115,19 @@ const mapContainer = ref(null)
 const startLatLng = ref(null)
 const endLatLng = ref(null)
 
-const session = useSessionStore()
+let session
+try {
+  session = useSessionStore()
+} catch (e) {
+  // Fallback ligero para entornos de test sin Pinia
+  session = {
+    token: null,
+    activeExecution: null,
+    isCheckingExecution: false,
+    fetchActiveExecution: () => {},
+    clearActiveExecution: () => {}
+  }
+}
 const showStartModal = ref(false)
 const selectedActivity = ref('') // activityType a enviar
 const isStarting = ref(false)
@@ -346,7 +358,7 @@ const loadRoute = async () => {
   await load()
 }
 
-// Lógica para Iniciar Ejecución 
+// Lógica para Iniciar Ejecución
 const handleStartExecution = async () => {
   // --- ¡¡AÑADE ESTA LÍNEA AQUÍ!! ---
   console.log('Iniciando ejecución. Actividad seleccionada:', selectedActivity.value);
@@ -356,30 +368,30 @@ const handleStartExecution = async () => {
     startError.value = 'Debes seleccionar un tipo de actividad.'
     return
   }
-  
+
   isStarting.value = true
   startError.value = ''
-  
+
   try {
     const routeId = route.params.id
     // El DTO del backend requiere 'activityType'.
-    const payload = { 
+    const payload = {
       activityType: selectedActivity.value,
       notes: null // Las notas se piden al finalizar
-    } 
-    
+    }
+
     // 1. Llamar a la API
     const executionData = await startExecution(routeId, payload)
-    
+
     // 2. Guardar en el store de Pinia
     session.activeExecution = executionData
-    
+
     // 3. Redirigir a la vista de ejecución activa (Paso 3)
     router.push({ name: 'ActiveRun' })
-    
+
   } catch (err) {
     const apiError = err.response?.data?.message || 'Error al iniciar la ejecución.'
-    
+
     // Sincronizar por si el error es que ya hay una en curso
     if (apiError.includes("IN_PROGRESS") || apiError.includes("en curso")) {
       startError.value = "Ya tienes otra ejecución en curso."
@@ -395,7 +407,7 @@ const handleStartExecution = async () => {
 onMounted(() => {
   // 1. Cargar los datos de la ruta
   loadRoute()
-  
+
   // 2. Sincronizar estado de ejecución (refuerzo)
   if (session.token && !session.isCheckingExecution) {
     session.fetchActiveExecution()
@@ -699,7 +711,7 @@ onBeforeUnmount(() => {
   .map-area {
     height: 350px;
   }
-  
+
   /* [NUEVO] Ajuste responsive para el botón de iniciar */
   .btn.btn-primary-start {
     order: -1; /* Mantiene el botón de iniciar arriba en móvil */

@@ -8,7 +8,7 @@ vi.mock('@/services/authService', () => {
 })
 
 import Profile from '@/views/Profile.vue'
-import { getProfile } from '@/services/authService'
+import { getProfile, updateProfile } from '@/services/authService'
 
 describe('Profile.vue — Mis Puntos (criterios de aceptación)', () => {
   beforeEach(() => {
@@ -115,6 +115,49 @@ describe('Profile.vue — Mis Puntos (criterios de aceptación)', () => {
 
     // No debe existir ningún input dentro de la tarjeta de puntos
     expect(wrapper.find('.points-card input').exists()).toBe(false)
+  })
+
+  it('GET /profile muestra goalKcalDaily en el formulario', async () => {
+    getProfile.mockResolvedValue({ firstName: 'A', goalKcalDaily: 2100 })
+    const wrapper = mount(Profile, { global: { stubs: ['router-link', 'KpiCard'] } })
+    await Promise.resolve()
+    await wrapper.vm.$nextTick()
+
+    const goalInput = wrapper.find('#goalKcal')
+    expect(goalInput.exists()).toBe(true)
+    expect(goalInput.element.value).toBe('2100')
+  })
+
+  it('PUT /profile guarda goalKcalDaily y muestra loading/error correctamente', async () => {
+    // mock profile initial data (valid for validation)
+    getProfile.mockResolvedValue({
+      firstName: 'A', lastName: 'B', birthDate: '2000-01-01', gender: 'male', timezone: 'UTC', heightCm: 170, weightKg: 70, goalKcalDaily: 2000
+    })
+
+    const savedResponse = { firstName: 'A', goalKcalDaily: 1800 }
+    updateProfile.mockResolvedValue(savedResponse)
+
+    const wrapper = mount(Profile, { global: { stubs: ['router-link', 'KpiCard'] } })
+    await Promise.resolve()
+    await wrapper.vm.$nextTick()
+
+    // Cambiar el input a 1800
+    const goalInput = wrapper.find('#goalKcal')
+    await goalInput.setValue('1800')
+
+    // Disparar submit
+    await wrapper.find('form').trigger('submit.prevent')
+    // esperar microtasks/promises
+    await Promise.resolve()
+    await wrapper.vm.$nextTick()
+
+    expect(updateProfile).toHaveBeenCalled()
+    const payload = updateProfile.mock.calls[0][0]
+    expect(payload.goalKcalDaily).toBe(1800)
+
+    // Después de guardar, el formulario debe reflejar el valor guardado
+    const goalAfter = wrapper.find('#goalKcal')
+    expect(goalAfter.element.value).toBe('1800')
   })
 })
 
