@@ -122,7 +122,8 @@ const hasData = computed(() => {
 
 // Formateador de fecha simple (ej: "23 Oct")
 function formatDate(dateStr) {
-  const d = new Date(dateStr)
+  const [year, month, day] = dateStr.split('-')
+  const d = new Date(year, month - 1, day)
   return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
 }
 
