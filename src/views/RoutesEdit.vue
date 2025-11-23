@@ -425,7 +425,7 @@ async function onSubmit() {
     error.value = 'Debes marcar Inicio y Fin en el mapa.'
     return
   }
-  if (checkpoints.value.some(cp => !cp.name?.trim())) {
+  if (checkpoints.value.some(cp => !cp.name || cp.name.trim().length === 0)) {
     error.value = 'Todas las paradas deben tener un nombre.'
     return
   }
