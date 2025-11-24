@@ -169,7 +169,7 @@ onMounted(async () => {
   try {
     route.value = await getRoute(execution.value.routeId)
     initializeTimer()
-  } catch (err) {
+  } catch {
     error.value = 'No se pudieron cargar los datos de la ruta.'
   } finally {
     isLoading.value = false
@@ -202,7 +202,7 @@ const handlePause = async () => {
   try {
     const updatedExecution = await pauseExecution(execution.value.id)
     session.activeExecution = updatedExecution // Esto disparará el watch(isPaused)
-  } catch (err) {
+  } catch {
     error.value = 'Error al pausar la ejecución.'
   } finally {
     isSubmitting.value = false
@@ -215,7 +215,7 @@ const handleResume = async () => {
   try {
     const updatedExecution = await resumeExecution(execution.value.id)
     session.activeExecution = updatedExecution // Esto disparará el watch(isPaused)
-  } catch (err) {
+  } catch {
     error.value = 'Error al reanudar la ejecución.'
   } finally {
     isSubmitting.value = false
@@ -257,7 +257,7 @@ const handleFinish = async (payload) => {
     await finishExecution(execution.value.id, payload)
     router.push('/') 
     session.clearActiveExecution()
-  } catch (err) {
+  } catch {
     error.value = 'Error al finalizar la ejecución.'
     isFinishing.value = false
   }

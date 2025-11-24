@@ -117,7 +117,7 @@ import { getRoute, deleteRoute } from '@/services/routesService'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { useSessionStore } from '@/stores/session.js'
-import { getMyExecutions, startExecution, pauseExecution, resumeExecution, finishExecution } from '@/services/executionService'
+import { startExecution } from '@/services/executionService'
 
 defineOptions({ name: 'RoutesShow' })
 
@@ -138,7 +138,7 @@ const endLatLng = ref(null)
 let session
 try {
   session = useSessionStore()
-} catch (e) {
+} catch {
   // Fallback ligero para entornos de test sin Pinia
   session = {
     token: null,
@@ -154,8 +154,8 @@ const isStarting = ref(false)
 const startError = ref('')
 
 let map = null
-let startMarker = null
-let endMarker = null
+let _startMarker = null
+let _endMarker = null
 let checkpointMarkers = null
 
 const visibleCheckpoints = computed(() => {
@@ -213,7 +213,7 @@ function loadMarkersOnMap() {
     el.className = 'custom-marker-mapbox start-marker-mapbox'
     el.innerHTML = '<div class="marker-pin-mapbox start-pin-mapbox"></div>'
 
-    startMarker = new mapboxgl.Marker({ element: el })
+    _startMarker = new mapboxgl.Marker({ element: el })
       .setLngLat([lng, lat])
       .setPopup(new mapboxgl.Popup({ offset: 25 }).setText('Inicio'))
       .addTo(map)
@@ -225,7 +225,7 @@ function loadMarkersOnMap() {
     el.className = 'custom-marker-mapbox end-marker-mapbox'
     el.innerHTML = '<div class="marker-pin-mapbox end-pin-mapbox"></div>'
 
-    endMarker = new mapboxgl.Marker({ element: el })
+    _endMarker = new mapboxgl.Marker({ element: el })
       .setLngLat([lng, lat])
       .setPopup(new mapboxgl.Popup({ offset: 25 }).setText('Fin'))
       .addTo(map)
@@ -357,7 +357,7 @@ function extractLatLngs(r) {
   return { s, e }
 }
 
-const formatKm = (meters) => {
+const _formatKm = (meters) => {
   if (meters == null) return '-'
   const km = Number(meters) / 1000
   return `${km.toFixed(2)} km`

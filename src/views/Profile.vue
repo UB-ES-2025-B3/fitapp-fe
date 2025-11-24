@@ -150,17 +150,17 @@ const route = useRoute()
 let session
 try {
   session = useSessionStore()
-} catch (e) {
+} catch {
   // En entornos de test sin Pinia activo, mock ligero para evitar excepciones
   session = { token: null, profileExists: false, setSession: () => {}, clearSession: () => {} }
 }
 
-let router
+let _router
 try {
-  router = useRouter()
-} catch (e) {
+  _router = useRouter()
+} catch {
   // Router puede no estar registrado en tests unitarios; fallback mínimo
-  router = { push: () => {} }
+  _router = { push: () => {} }
 }
 
 // Zona horaria local por defecto (fallback cuando la API no devuelva timezone)

@@ -257,7 +257,7 @@ onMounted(() => {
 // Hook de ciclo de vida: carga los datos CADA VEZ que el componente
 // se activa (es decir, cuando navegas de vuelta a él).
 onActivated(() => {
-  loadDashboardData()
+  loadDashboardData()
 })
 
 /**
