@@ -29,7 +29,7 @@
               <li v-for="r in routes" :key="r.id" class="route-row">
                 <div class="route-info">
                   <strong class="route-name">{{ r.name }}</strong>
-                  <span class="route-distance">{{ r.distanceKm ? Number(r.distanceKm).toFixed(2) + ' km' : '-' }}</span>
+                  <span class="route-distance">{{ r.distanceKm ? Number(r.distanceKm).toFixed(2) + ' km' : formatKm(r.distanceMeters) }}</span>
                 </div>
 
                 <div class="row-actions">

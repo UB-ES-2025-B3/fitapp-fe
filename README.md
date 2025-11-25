@@ -1,106 +1,147 @@
-# .
+# FitApp Frontend (Vue 3 + Vite)
 
-This template should help get you started developing with Vue 3 in Vite.
 
-## Recommended IDE Setup
+Este repositorio contiene el código fuente del frontend de FitApp, desarrollado con Vue 3 y Vite. Incluye una suite completa de pruebas automatizadas (Unitarias y E2E) y configuración para despliegue en contenedores.
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
 
-## Recommended Browser Setup
+---
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd) 
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
 
-## Customize configuration
+## 🛠️ Configuración del Entorno (IDE)
 
-See [Vite Configuration Reference](https://vite.dev/config/).
 
-## Project Setup
+Se recomienda usar **[VS Code](https://code.visualstudio.com/)** con la extensión **[Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar)**.
+> **Nota:** Deshabilita Vetur si lo tienes instalado para evitar conflictos.
 
+
+### Configuración del Navegador
+Para depurar la aplicación y el estado reactivo:
+- **Chromium (Chrome, Edge, Brave):** Instala [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd).
+- **Firefox:** Instala [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/).
+- **Configuración extra:** Habilita [Custom Object Formatter](http://bit.ly/object-formatters) en las DevTools del navegador.
+
+
+---
+
+
+## Instalación y Ejecución
+
+
+### 1. Instalar dependencias
 ```sh
 npm install
 ```
 
-### Compile and Hot-Reload for Development
 
+### 2. Ejecutar en desarrollo (Hot-Reload)
 ```sh
 npm run dev
 ```
-
-### Compile and Minify for Production
-
+### 3. Compilar para Producción
 ```sh
 npm run build
 ```
+### 4. Análisis Estático (Linting)
 
-### Lint with [ESLint](https://eslint.org/)
 
+Se utiliza ESLint con "Flat Config" para mantener la calidad del código y evitar errores de sintaxis.
 ```sh
 npm run lint
 ```
 
 
-## Tests (rápido)
+## Testing y QA
 
-Comandos básicos:
 
-1. Instala dependencias:
-
-```powershell
-npm install
+### 1. Unit Tests (Vitest)
+- Ejecutar todos los tests:
+```sh
+npm run test:unit
 ```
 
-2. Ejecuta todas las pruebas:
 
-```powershell
-npm run test
+- Modo Watch (Desarrollo):
+```sh
+npm run test:unit -- --watch
 ```
 
-3. Modo watch (desarrollo):
 
-```powershell
-npm run test -- --watch
+- Ejecutar un fichero concreto:
+```sh
+npm run test:unit -- tests/unit/RoutesNew.spec.js
 ```
 
-Dónde están los tests: `tests/unit/`
 
-Notas rápidas: las pruebas usan Vitest y `@vue/test-utils`. Los tests del proyecto mockean servicios con `vi.mock()` para no depender del backend.
-
-Ejecutar pruebas individuales
-
-- Ejecutar un fichero de tests concreto (una pasada):
-
-```powershell
-# usando el script de package.json
-npm run test -- tests/unit/RoutesNew.spec.js
+- Filtrar por nombre del test:
+```sh
+npm run test:unit -- -t "Validación - nombre requerido"
+```
 
 
-- Ejecutar un test concreto por nombre (grep/filtrado):
-
-```powershell
-# buscar por nombre de test (título exacto o patrón)
-npm run test -- tests/unit/RoutesNew.spec.js -t "Validación - nombre requerido"
+### 2. End-to-End Tests (Cypress)
+Validan el flujo crítico del usuario ("Happy Path") simulando un navegador real.
 
 
+- Flujo cubierto: Registro → Onboarding (Edición) → Dashboard → Crear Ruta.
+- Modo Headless (Ideal para CI/CD):
 
 
-Variables de entorno útiles
-- `VITE_USE_MOCKS=true` — convención usada si quieres activar un mock local en `src/services` (si lo implementas).
-- `VITE_GOOGLE_MAPS_API_KEY=<tu_key>` — para que `RoutesNew.vue` cargue Google Maps en vez del fallback SVG. No subas esta clave al repo; usa `.env.local` y restringe por host en Google Cloud.
-- Para simular errores 4xx/5xx o latencias, MSW es muy conveniente (`ctx.status(500)`, `ctx.delay(1200)`).
+```sh
+npm run test:e2e
+```
 
-### Construir y ejecutar el front
-Para pruebas en local, construimos el front en el puerto 8082 y lo conectamos a la API del puerto 8080:
 
+- Modo Interfaz Gráfica (Debugging):
+```sh
+npx cypress open
+```
+
+
+## Variables de Entorno
+
+
+Consulta Vite Configuration Reference para más detalles.
+
+
+VITE_API_URL: URL del backend (por defecto /api/v1).
+
+
+VITE_USE_MOCKS: true para activar mocks locales en servicios.
+
+
+VITE_MAPBOX_ACCESS_TOKEN: Token para cargar mapas de Mapbox GL.
+
+
+VITE_GOOGLE_MAPS_API_KEY: (Opcional) Para cargar Google Maps.
+
+
+Nota: No subas claves reales al repositorio; usa .env.local.
+
+
+## 🐳 Docker
+Para pruebas locales simulando producción (Nginx), construye el contenedor y conéctalo a tu API local (puerto 8080).
+
+
+Construir imagen:
 ```sh
 docker build --build-arg VITE_API_URL=http://localhost:8080 -t fitapp-frontend-local .
 ```
 
+
+Correr contenedor (Puerto 8082):
 ```sh
-docker run -p 8082:80 --rm fitapp-frontend-local    
+docker run -p 8082:80 --rm fitapp-frontend-local
 ```
 
+
+
+
+## 🔄 Pipeline CI/CD (Recomendación)
+Para asegurar la calidad en el pipeline de despliegue, se recomienda este orden de ejecución:
+
+
+- npm install
+- npm run lint (Bloqueante)
+- npm run test:unit (Bloqueante)
+- npm run test:e2e (Validación de integración)
+- npm run build

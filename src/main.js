@@ -4,7 +4,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import { useSessionStore } from '@/stores/session.js'
-import api, { setupInterceptors } from '@/services/api.js'
+import { setupInterceptors } from '@/services/api.js'
 import { getProfile } from '@/services/authService.js'
 
 console.log('import.meta.env.VITE_MAPBOX_ACCESS_TOKEN =', import.meta.env.VITE_MAPBOX_ACCESS_TOKEN)
@@ -58,7 +58,9 @@ boot()
 window.addEventListener('storage', (e) => {
   if (e.key === 'token' && !e.newValue) {
     // Se ha borrado el token en otra pestaña
-    try { session.clearSession() } catch (e) {}
+    try { session.clearSession() } catch {
+      // Ignorar error: la sesión ya puede estar limpia
+    }
 
     // Evitar redirección redundante si ya estamos en /login
     if (router.currentRoute.value.name !== 'login') {

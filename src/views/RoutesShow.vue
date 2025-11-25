@@ -11,8 +11,8 @@
           <div v-if="loading" class="center">Cargando...</div>
           <div v-else-if="error" class="error-box">{{ error }}</div>
           <div v-else>
-            <h2>{{ routeData.name }}</h2>
-            <p>Distancia: {{ routeData.distanceKm ? Number(routeData.distanceKm).toFixed(2) + ' km' : '-' }}</p>
+            <h2>{{ routeData?.name || '' }}</h2>
+            <p>Distancia: {{ (routeData?.distanceKm ? Number(routeData.distanceKm).toFixed(2) + ' km' : (routeData?.distanceMeters ? (Number(routeData.distanceMeters)/1000).toFixed(2) + ' km' : '-')) }}</p>
 
             <div class="form-row">
               <label>Mapa de la ruta</label>
@@ -25,7 +25,45 @@
               </div>
             </div>
 
+            <div v-if="visibleCheckpoints.length" class="form-row checkpoints-section">
+              <div class="section-title">
+                <label>Checkpoints</label>
+                <span class="badge">{{ visibleCheckpoints.length }}</span>
+              </div>
+              <div class="checkpoints-list readonly">
+                <div
+                  v-for="(cp, index) in visibleCheckpoints"
+                  :key="cp.id || index"
+                  class="checkpoint-row readonly"
+                >
+                  <div class="cp-number">{{ index + 1 }}</div>
+                  <div class="cp-info">
+                    <p class="cp-name">{{ cp.name || `Checkpoint ${index + 1}` }}</p>
+                    <p class="cp-coords">{{ cp.coords.lat.toFixed(5) }}, {{ cp.coords.lng.toFixed(5) }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div class="actions-row">
+              <button
+                v-if="!session.activeExecution"
+                class="btn btn-primary-start"
+                @click="showStartModal = true"
+                :disabled="isStarting"
+              >
+                <span v-if="isStarting">Iniciando...</span>
+                <span v-else>Iniciar Ejecución</span>
+              </button>
+
+              <router-link
+                v-if="session.activeExecution"
+                class="btn btn-primary-start"
+                :to="{ name: 'ActiveRun' }"
+              >
+                Ir a ejecución activa
+              </router-link>
+
               <router-link class="btn ghost" :to="{ name: 'RoutesEdit', params: { id: routeData.id } }">Editar</router-link>
               <button class="btn danger" @click="openConfirm(routeData.id)" :disabled="deleting === routeData.id">Borrar</button>
               <router-link class="btn" :to="{ name: 'RoutesList' }">Volver al listado</router-link>
@@ -33,6 +71,37 @@
           </div>
 
           <ConfirmModal :visible="showConfirm" :message="confirmMessage" @confirm="onConfirm" @cancel="onCancel" />
+          <div v-if="showStartModal" class="start-modal-overlay" @click.self="showStartModal = false">
+            <div class="start-modal-card">
+              <h3>Iniciar Ruta</h3>
+              <p>Selecciona el tipo de actividad para empezar.</p>
+
+              <div class="form-group">
+                <label for="activityType">Tipo de Actividad <span class="required">*</span></label>
+                <select v-model="selectedActivity" id="activityType">
+                  <option value="" disabled>Selecciona una...</option>
+                  <option value="WALKING_SLOW">Caminata (Lenta)</option>
+                  <option value="WALKING_MODERATE">Caminata (Moderada)</option>
+                  <option value="WALKING_INTENSE">Caminata (Intensa)</option>
+                  <option value="RUNNING_SLOW">Carrera (Lenta)</option>
+                  <option value="RUNNING_MODERATE">Carrera (Moderada)</option>
+                  <option value="RUNNING_INTENSE">Carrera (Intensa)</option>
+                  <option value="CYCLING_SLOW">Ciclismo (Lento)</option>
+                  <option value="CYCLING_MODERATE">Ciclismo (Moderado)</option>
+                  <option value="CYCLING_INTENSE">Ciclismo (Intenso)</option>
+                </select>
+                <small v-if="startError" class="start-error">{{ startError }}</small>
+              </div>
+
+              <div class="start-modal-actions">
+                <button class="btn ghost" @click="showStartModal = false">Cancelar</button>
+                <button class="btn" @click="handleStartExecution" :disabled="!selectedActivity || isStarting">
+                  <span v-if="isStarting">...</span>
+                  <span v-else>Confirmar e Iniciar</span>
+                </button>
+              </div>
+            </div>
+          </div>
           <div v-if="toastVisible" class="toast">{{ toastMessage }}</div>
         </div>
       </section>
@@ -41,12 +110,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch, nextTick, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import ConfirmModal from '@/components/ConfirmModal.vue'
 import { getRoute, deleteRoute } from '@/services/routesService'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
+import { useSessionStore } from '@/stores/session.js'
+import { startExecution } from '@/services/executionService'
 
 defineOptions({ name: 'RoutesShow' })
 
@@ -64,13 +135,48 @@ const mapContainer = ref(null)
 const startLatLng = ref(null)
 const endLatLng = ref(null)
 
+let session
+try {
+  session = useSessionStore()
+} catch {
+  // Fallback ligero para entornos de test sin Pinia
+  session = {
+    token: null,
+    activeExecution: null,
+    isCheckingExecution: false,
+    fetchActiveExecution: () => {},
+    clearActiveExecution: () => {}
+  }
+}
+const showStartModal = ref(false)
+const selectedActivity = ref('') // activityType a enviar
+const isStarting = ref(false)
+const startError = ref('')
+
 let map = null
-let startMarker = null
-let endMarker = null
+let _startMarker = null
+let _endMarker = null
+let checkpointMarkers = null
+
+const visibleCheckpoints = computed(() => {
+  return (routeData.value.checkpoints || [])
+    .map(cp => {
+      const coords = parseLatLngString(cp.point)
+      if (!coords) return null
+      return { ...cp, coords }
+    })
+    .filter(Boolean)
+})
 
 function initMap() {
   if (!mapContainer.value) {
     console.error('[RoutesShow] No se encontró mapContainer. El mapa no puede iniciar.')
+    return
+  }
+
+  // En modo test no inicializamos Mapbox (evitar errores de WebGL en JSDOM)
+  if (import.meta?.env?.MODE === 'test') {
+    console.warn('[RoutesShow] skipping map init in test mode')
     return
   }
 
@@ -107,7 +213,7 @@ function loadMarkersOnMap() {
     el.className = 'custom-marker-mapbox start-marker-mapbox'
     el.innerHTML = '<div class="marker-pin-mapbox start-pin-mapbox"></div>'
 
-    startMarker = new mapboxgl.Marker({ element: el })
+    _startMarker = new mapboxgl.Marker({ element: el })
       .setLngLat([lng, lat])
       .setPopup(new mapboxgl.Popup({ offset: 25 }).setText('Inicio'))
       .addTo(map)
@@ -119,11 +225,13 @@ function loadMarkersOnMap() {
     el.className = 'custom-marker-mapbox end-marker-mapbox'
     el.innerHTML = '<div class="marker-pin-mapbox end-pin-mapbox"></div>'
 
-    endMarker = new mapboxgl.Marker({ element: el })
+    _endMarker = new mapboxgl.Marker({ element: el })
       .setLngLat([lng, lat])
       .setPopup(new mapboxgl.Popup({ offset: 25 }).setText('Fin'))
       .addTo(map)
   }
+
+  drawCheckpoints()
 
   updateRouteLine()
 }
@@ -136,16 +244,19 @@ function updateRouteLine() {
     map.removeSource('route')
   }
 
+  const routeCoordinates = [
+    [startLatLng.value.lng, startLatLng.value.lat],
+    ...visibleCheckpoints.value.map(cp => [cp.coords.lng, cp.coords.lat]),
+    [endLatLng.value.lng, endLatLng.value.lat]
+  ]
+
   map.addSource('route', {
     type: 'geojson',
     data: {
       type: 'Feature',
       geometry: {
         type: 'LineString',
-        coordinates: [
-          [startLatLng.value.lng, startLatLng.value.lat],
-          [endLatLng.value.lng, endLatLng.value.lat]
-        ]
+        coordinates: routeCoordinates
       }
     }
   })
@@ -166,14 +277,43 @@ function updateRouteLine() {
   })
 
   const bounds = new mapboxgl.LngLatBounds()
-  bounds.extend([startLatLng.value.lng, startLatLng.value.lat])
-  bounds.extend([endLatLng.value.lng, endLatLng.value.lat])
+  routeCoordinates.forEach(coord => bounds.extend(coord))
   map.fitBounds(bounds, { padding: 80 })
+}
+
+function drawCheckpoints() {
+  if (checkpointMarkers && checkpointMarkers.length > 0) {
+    // Limpiar marcadores anteriores
+    checkpointMarkers.forEach(marker => marker.remove())
+  }
+
+  checkpointMarkers = []
+
+  const list = routeData.value.checkpoints || []
+  if (!Array.isArray(list) || list.length === 0 || !map) return
+
+  list.forEach((cp, index) => {
+    const cpCoords = parseLatLngString(cp.point)
+    if (!cpCoords) {
+      console.warn(`[RoutesShow] Checkpoint ${index} tiene coordenadas inválidas:`, cp.point)
+      return
+    }
+    const el = document.createElement('div')
+    el.className = 'custom-marker-mapbox checkpoint-marker-mapbox'
+    el.innerHTML = `<div class="marker-pin-mapbox checkpoint-pin-mapbox">${index + 1}</div>`
+
+    const marker = new mapboxgl.Marker({ element: el })
+      .setLngLat([cpCoords.lng, cpCoords.lat])
+      .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(cp.name || `Checkpoint ${index + 1}`))
+      .addTo(map)
+
+    checkpointMarkers.push(marker)
+  })
 }
 
 /**
  * Parsea un string "lat,lng" a un objeto { lat, lng }
- * @param {string} str 
+ * @param {string} str
  * @returns {Object|null}
  */
 function parseLatLngString(str) {
@@ -217,7 +357,7 @@ function extractLatLngs(r) {
   return { s, e }
 }
 
-const formatKm = (meters) => {
+const _formatKm = (meters) => {
   if (meters == null) return '-'
   const km = Number(meters) / 1000
   return `${km.toFixed(2)} km`
@@ -283,15 +423,66 @@ const loadRoute = async () => {
   await load()
 }
 
+// Lógica para Iniciar Ejecución
+const handleStartExecution = async () => {
+  // --- ¡¡AÑADE ESTA LÍNEA AQUÍ!! ---
+  console.log('Iniciando ejecución. Actividad seleccionada:', selectedActivity.value);
+  // ---------------------------------
+
+  if (!selectedActivity.value) {
+    startError.value = 'Debes seleccionar un tipo de actividad.'
+    return
+  }
+
+  isStarting.value = true
+  startError.value = ''
+
+  try {
+    const routeId = route.params.id
+    // El DTO del backend requiere 'activityType'.
+    const payload = {
+      activityType: selectedActivity.value,
+      notes: null // Las notas se piden al finalizar
+    }
+
+    // 1. Llamar a la API
+    const executionData = await startExecution(routeId, payload)
+
+    // 2. Guardar en el store de Pinia
+    session.activeExecution = executionData
+
+    // 3. Redirigir a la vista de ejecución activa (Paso 3)
+    router.push({ name: 'ActiveRun' })
+
+  } catch (err) {
+    const apiError = err.response?.data?.message || 'Error al iniciar la ejecución.'
+
+    // Sincronizar por si el error es que ya hay una en curso
+    if (apiError.includes("IN_PROGRESS") || apiError.includes("en curso")) {
+      startError.value = "Ya tienes otra ejecución en curso."
+      session.fetchActiveExecution() // Sincronizar el store
+    } else {
+      startError.value = apiError
+    }
+  } finally {
+    isStarting.value = false
+  }
+}
+
 onMounted(() => {
-  // 1. Cargar los datos de la ruta PRIMERO
+  // 1. Cargar los datos de la ruta
   loadRoute()
+
+  // 2. Sincronizar estado de ejecución (refuerzo)
+  if (session.token && !session.isCheckingExecution) {
+    session.fetchActiveExecution()
+  }
 })
 
 watch(loading, (isLoading) => {
   // Si 'loading' acaba de cambiar a 'false' Y no hay error:
   if (isLoading === false && !error.value) {
-    
+
     // Esperamos a que Vue actualice el DOM (para que exista el div del mapa)
     nextTick(() => {
       // Ahora que el div del mapa existe, lo inicializamos
@@ -408,6 +599,26 @@ onBeforeUnmount(() => {
   box-shadow: 0 3px 10px rgba(197, 48, 48, 0.5);
 }
 
+:global(.checkpoint-pin-mapbox) {
+  background: #ed8936;
+  border: 3px solid #fff;
+  box-shadow: 0 3px 10px rgba(237, 137, 54, 0.4);
+  color: #fff;
+  font-size: 14px;
+  text-align: center;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  line-height: 30px;
+}
+
+.checkpoints-list { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 12px; }
+
 .coords {
   display: flex;
   gap: 20px;
@@ -495,28 +706,164 @@ onBeforeUnmount(() => {
   font-weight: 500;
 }
 
-@media (max-width: 720px) {
-  .card {
-    padding: 20px;
-  }
+/* [NUEVO] Estilo para el botón de Iniciar */
+.btn.btn-primary-start {
+  background: #2ecc71; /* Verde */
+  color: white;
+  border-color: #2ecc71;
+  order: -1; /* [NUEVO] Pone el botón de iniciar primero */
+}
+.btn.btn-primary-start:hover:not(:disabled) {
+  background: #28b463;
+}
 
+/* [NUEVO] Estilos Modal de Inicio (Paso 5) */
+.start-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+.start-modal-card {
+  background: white;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 420px;
+  margin: 20px;
+  padding: 24px;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+}
+.start-modal-card h3 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+}
+.start-modal-card p {
+  margin: 0 0 24px 0;
+  color: #666;
+  font-size: 15px;
+}
+.form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 16px;
+}
+.form-group label {
+  font-weight: 600;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+.form-group select {
+  padding: 12px 14px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 15px;
+  font-family: inherit;
+  background: #fff;
+}
+.required { color: #c53030; }
+.start-error {
+  color: #c53030;
+  font-size: 13px;
+  margin-top: 8px;
+}
+.start-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.checkpoints-section {
+  background: #f8fafc;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #f1f5f9;
+  margin-top: 20px;
+}
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.badge {
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 99px;
+}
+.checkpoints-list.readonly {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.checkpoint-row.readonly {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+.cp-number {
+  width: 24px;
+  height: 24px;
+  background: #ed8936;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.cp-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cp-name {
+  margin: 0;
+  font-weight: 600;
+  color: #1f2937;
+}
+.cp-coords {
+  margin: 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+@media (max-width: 720px) {
+  /* ... (estilos responsive existentes) ... */
   .coords {
     flex-direction: column;
     gap: 8px;
   }
-
   .actions-row {
     flex-direction: column;
     width: 100%;
   }
-
   .btn {
     width: 100%;
     text-align: center;
   }
-
   .map-area {
     height: 350px;
+  }
+
+  /* [NUEVO] Ajuste responsive para el botón de iniciar */
+  .btn.btn-primary-start {
+    order: -1; /* Mantiene el botón de iniciar arriba en móvil */
   }
 }
 </style>

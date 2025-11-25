@@ -54,7 +54,7 @@ export function setupInterceptors({ store, router } = {}) {
           if (store && typeof store.clearSession === 'function') {
             store.clearSession()
           }
-        }catch (e) {
+        }catch {
           // Silenciar errores de cleanup
         }
         // 2) Limpieza en localStorage para notificar a otras pestañas
@@ -63,7 +63,9 @@ export function setupInterceptors({ store, router } = {}) {
         localStorage.removeItem('profileExists')
 
         // 3) Redirección a login si tenemos router
-        try { if (router) router.push({ name: 'login' }) } catch (e) {}
+        try { if (router) router.push({ name: 'login' }) } catch {
+          // Ignorar error: la sesión ya puede estar limpia
+        }
       }
 
       // Propaga el error para que cada pantalla pueda mostrar su mensaje

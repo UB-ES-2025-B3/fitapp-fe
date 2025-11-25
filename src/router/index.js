@@ -68,6 +68,18 @@ const routes = [
     name: 'RoutesEdit',
     component: () => import('@/views/RoutesEdit.vue'),
     props: true
+  },
+  {
+    path: '/run/active',
+    name: 'ActiveRun',
+    component: () => import('@/views/ActiveRun.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/evolution',
+    name: 'Evolution',
+    component: () => import('@/views/Evolution.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 

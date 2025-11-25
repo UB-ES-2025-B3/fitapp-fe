@@ -17,7 +17,7 @@ import { useSessionStore } from '@/stores/session.js'
 const router = useRouter()
 const session = useSessionStore()
 
-const handleProfileSaved = (savedData) => {
+const handleProfileSaved = () => {
   // Persistir flag profileExists y redirigir a home
   session.setSession(session.token, true)
   router.push({ name: 'home' })
