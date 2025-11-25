@@ -86,17 +86,21 @@ describe('Routes.vue — Listado de rutas (criterios de aceptación)', () => {
       }
   })
 
-  it('Empty state muestra CTA "Crear ruta" cuando no hay rutas', async () => {
+  it('Empty state muestra mensaje cuando no hay rutas (sin botón redundante)', async () => {
     getRoutes.mockResolvedValue([])
     const wrapper = mount(Routes, { global: { stubs: ['router-link'] } })
     await Promise.resolve()
     await wrapper.vm.$nextTick()
 
+    // 1. El contenedor empty-state debe existir
     expect(wrapper.find('.empty-state').exists()).toBe(true)
+
+    // 2. Debe contener el texto informativo
+    expect(wrapper.find('.empty-state').text()).toContain('No hay rutas todavía')
+
+    // 3. NO debe contener el botón de crear ruta (ya que está en el header)
     const cta = wrapper.find('.empty-state').find('router-link-stub')
-    expect(cta.exists()).toBe(true)
-    const ctaTo = getTo(cta)
-    if (typeof ctaTo === 'object') expect(ctaTo.name).toBe('RoutesNew')
+    expect(cta.exists()).toBe(false)
   })
 
   it('Link "Crear ruta" del header apunta a /routes/new (RoutesNew)', async () => {
