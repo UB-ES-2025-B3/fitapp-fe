@@ -1,15 +1,48 @@
-name: CI/CD Frontend - Azure App Service
+name: CI/CD FitApp
 
 on:
   push:
-    branches:
-      - main      # Despliegue a PROD
-      - preprod   # Despliegue a PREPROD
+    branches: [ main, preprod, dev ] 
+  pull_request:
+    branches: [ main, preprod, dev ]
   workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  # --- JOB 1: CI ---
+  ci-check:
+    name: Calidad del Código (Lint & Unit)
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint (Bloqueante)
+        # Si hay código mal formateado o errores de sintaxis, para aquí.
+        run: npm run lint
+
+      - name: Unit Tests (Vitest)
+        # Ejecuta solo los unitarios (lógica de componentes, stores, utilidades)
+        run: npm run test:unit
+
+
+  # --- JOB 2: DESPLIEGUE (Solo si pasa el CI) ---
+  build-and-deploy:
+    name: Desplegar a Azure
+    runs-on: ubuntu-latest
+    # No despliega si falla el CI
+    needs: ci-check
+    
+    # Solo despliega si es push y NO es la rama dev
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref != 'refs/heads/dev'
     
     # Selección automática del entorno
     environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'preprod' }}
