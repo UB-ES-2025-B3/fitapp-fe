@@ -4,7 +4,7 @@
     <header v-if="!hideNav" class="navbar">
       <div class="nav-container">
         <router-link to="/" class="logo">
-          <img src="/logo_secundario.webp" alt="logo" />
+          <img src="/logo_principal.svg" alt="logo" />
           FitApp
         </router-link>
 
@@ -17,8 +17,12 @@
 
               <router-link
               class="nav-link"
-              :to="{ name: 'RoutesList' }" 
+              :to="{ name: 'RoutesList' }"
               >Rutas</router-link>
+              <router-link
+              class="nav-link"
+              :to="{ name: 'Evolution' }"
+              >Evolución</router-link>
               <router-link
               class="nav-link"
               to="/profile"
@@ -42,6 +46,15 @@
       </div>
     </header>
 
+    <div v-if="session.activeExecution" class="active-run-banner">
+      <div class="banner-content">
+        <span>Tienes una ruta en curso.</span>
+        <router-link :to="{ name: 'ActiveRun' }" class="banner-link">
+          Ver ejecución
+        </router-link>
+      </div>
+    </div>
+
     <!-- MAIN -->
     <main class="main-content">
       <router-view />
@@ -55,7 +68,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted} from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useSessionStore } from '@/stores/session.js'
 
@@ -66,6 +79,16 @@ const session = useSessionStore()
 const isAuthenticated = computed(() => !!session.token)
 const hideNav = computed(() => route.matched.some(r => r.meta?.hideNav))
 const hideFooter = computed(() => route.matched.some(r => r.meta?.hideFooter))
+
+
+// Lógica de carga de ejecución activa
+// Al cargar la app, si el usuario está logueado,
+// comprobamos si tiene una ejecución activa [Issue: Única ejecución activa]
+onMounted(() => {
+  if (isAuthenticated.value) {
+    session.fetchActiveExecution()
+  }
+})
 
 const logout = () => {
   session.clearSession()
@@ -222,4 +245,25 @@ const logout = () => {
     font-size: 20px;
   }
 }
+
+.active-run-banner {
+  background: #3B82F6; /* Azul */
+  color: white;
+  padding: 12px 20px;
+  text-align: center;
+  font-weight: 600;
+  z-index: 999; /* Debajo del navbar (1000) pero encima del contenido */
+
+}
+.banner-content {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.banner-link {
+  color: white;
+  font-weight: 700;
+  text-decoration: underline;
+  margin-left: 12px;
+}
+
 </style>

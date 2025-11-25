@@ -1,20 +1,54 @@
-# Nombre del workflow
-name: Desplegar Frontend en Azure App Service
+name: CI/CD FitApp
 
-# Triggers
 on:
   push:
-    branches:
-      - main
+    branches: [ main, preprod, dev ] 
+  pull_request:
+    branches: [ main, preprod, dev ]
   workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  # --- JOB 1: CI ---
+  ci-check:
+    name: Calidad del Código (Lint & Unit)
     runs-on: ubuntu-latest
-    environment: prod
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint (Bloqueante)
+        # Si hay código mal formateado o errores de sintaxis, para aquí.
+        run: npm run lint
+
+      - name: Unit Tests (Vitest)
+        # Ejecuta solo los unitarios (lógica de componentes, stores, utilidades)
+        run: npm run test:unit
+
+
+  # --- JOB 2: DESPLIEGUE (Solo si pasa el CI) ---
+  build-and-deploy:
+    name: Desplegar a Azure
+    runs-on: ubuntu-latest
+    # No despliega si falla el CI
+    needs: ci-check
+    
+    # Solo despliega si es push y NO es la rama dev
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref != 'refs/heads/dev'
+    
+    # Selección automática del entorno
+    environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'preprod' }}
 
     steps:
-      # 1. Checkout del repositorio
+      # 1. Descargar código
       - name: Checkout del repositorio
         uses: actions/checkout@v4
 
@@ -24,16 +58,16 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # 3. Login en el ACR
-      - name: 'Login en Azure Container Registry (ACR)'
+      # 3. Login en ACR
+      - name: 'Login en Azure Container Registry'
         uses: azure/docker-login@v1
         with:
           login-server: ${{ secrets.ACR_LOGIN_SERVER }}
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
 
-      # 4. Construir y subir imagen Docker (Frontend)
-      - name: Construir y subir la imagen Docker (Frontend)
+      # 4. Build & Push
+      - name: Construir y subir la imagen Docker para el Frontend
         run: |
           docker build . \
             --build-arg VITE_API_URL=${{ secrets.VITE_API_URL }} \
@@ -41,14 +75,15 @@ jobs:
             -t ${{ secrets.ACR_LOGIN_SERVER }}/fitapp-frontend:${{ github.sha }}
           docker push ${{ secrets.ACR_LOGIN_SERVER }}/fitapp-frontend:${{ github.sha }}
 
-      # 5. Desplegar en Azure App Service
+      # 5. Desplegar
+      # Usa la VARIABLE 'APP_NAME' para seleccionar donde desplegar según el entorno.
       - name: 'Desplegar en Azure App Service (Frontend)'
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'fitappweb'
+          app-name: ${{ vars.APP_NAME }}
           images: '${{ secrets.ACR_LOGIN_SERVER }}/fitapp-frontend:${{ github.sha }}'
 
-      # 6. Logout de Azure
+      # 6. Logout
       - name: Logout de Azure
         if: always()
         run: |

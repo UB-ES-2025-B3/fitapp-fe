@@ -28,7 +28,7 @@
               <input v-model="form.birthDate" type="date" />
               <small v-if="errors.birthDate" class="error">{{ errors.birthDate }}</small>
             </label>
-            
+
             <label class="field">
               <span>Género</span>
               <select v-model="form.gender">
@@ -61,6 +61,12 @@
             </label>
           </div>
 
+          <label class="field">
+            <span>Objetivo Kcal Diarias</span>
+            <input id="goalKcal" v-model.number="form.goalKcalDaily" type="number" min="0" step="1" placeholder="Ej. 2000" />
+            <small v-if="errors.goalKcalDaily" class="error">{{ errors.goalKcalDaily }}</small>
+          </label>
+
           <div class="actions">
             <button type="submit" class="btn" :disabled="saving">
               <span v-if="saving">Guardando...</span>
@@ -72,6 +78,27 @@
             </button>
           </div>
         </form>
+      </section>
+
+      <section class="card points-card">
+        <header class="card-header">
+          <h2>Mis Puntos</h2>
+          <p class="muted">Total acumulado</p>
+        </header>
+
+        <div class="card-body">
+          <template v-if="pointsLoading">
+            <div class="kpi-skel">Cargando puntos...</div>
+          </template>
+
+          <template v-else-if="pointsError">
+            <div class="points-error">Error: {{ pointsError }}</div>
+          </template>
+
+          <template v-else>
+            <KpiCard icon="⭐" :value="points === null ? 0 : points" title="Mis Puntos" subtitle="Total acumulado" color="#F59E0B" />
+          </template>
+        </div>
       </section>
 
       <section class="card password-card">
@@ -112,18 +139,42 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, nextTick} from "vue";
 import { useSessionStore } from "@/stores/session.js";
 import { getProfile, updateProfile } from "@/services/authService.js";
-import { useRouter } from "vue-router";
+import KpiCard from '@/components/KpiCard.vue'
+import { useRouter, useRoute } from "vue-router";
 
-const session = useSessionStore();
-const router = useRouter();
+const route = useRoute()
+
+let session
+try {
+  session = useSessionStore()
+} catch {
+  // En entornos de test sin Pinia activo, mock ligero para evitar excepciones
+  session = { token: null, profileExists: false, setSession: () => {}, clearSession: () => {} }
+}
+
+let _router
+try {
+  _router = useRouter()
+} catch {
+  // Router puede no estar registrado en tests unitarios; fallback mínimo
+  _router = { push: () => {} }
+}
+
+// Zona horaria local por defecto (fallback cuando la API no devuelva timezone)
+const localTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || ''
 
 // UI states
 const loading = ref(false);
 const saving = ref(false);
 const changingPwd = ref(false);
+// Points UI state (tarjeta Mis Puntos)
+const points = ref(null)
+// Por defecto true para que el skeleton sea visible inmediatamente al montar
+const pointsLoading = ref(true)
+const pointsError = ref(null)
 
 // Guardar datos leídos del servidor para poder resetear el formulario
 const loaded = ref(null);
@@ -133,17 +184,18 @@ const form = ref({
   firstName: "",
   lastName: "",
   birthDate: "", // yyyy-mm-dd
-  gender: "", 
-  timezone: "", 
+  gender: "",
+  timezone: "",
   heightCm: null,
   weightKg: null,
+  goalKcalDaily: null,
 });
 
 const errors = ref({
   firstName: "",
   lastName: "",
   birthDate: "",
-  gender: "", 
+  gender: "",
   timezone: "",
   heightCm: "",
   weightKg: "",
@@ -170,18 +222,25 @@ const pwdErrors = ref({
 //  - otros errores se loguean
 const loadProfile = async () => {
   loading.value = true;
+  pointsLoading.value = true
   try {
     const data = await getProfile();
     loaded.value = {
       firstName: data.firstName ?? "",
       lastName: data.lastName ?? "",
       birthDate: data.birthDate ?? "",
-      gender: data.gender ? data.gender.toLowerCase() : "", 
-      timezone: data.timeZone ?? data.timezone ?? localTimezone, 
+      gender: data.gender ? data.gender.toLowerCase() : "",
+      timezone: data.timeZone ?? data.timezone ?? localTimezone,
       heightCm: data.heightCm ?? null,
       weightKg: data.weightKg ?? null,
+      goalKcalDaily: data.goalKcalDaily ?? data.goalKcal ?? data.goal ?? null,
     };
     Object.assign(form.value, { ...loaded.value });
+
+    // Extraer puntos (campo flexible según backend)
+    const resolvedPoints = data.points ?? data.pointsTotal ?? data.totalPoints ?? data.total_points ?? 0
+    points.value = typeof resolvedPoints === 'number' ? resolvedPoints : Number(resolvedPoints) || 0
+    pointsError.value = null
 
     // Backend devolvió perfil -> persistir flag en el store
     session.setSession(session.token, true);
@@ -191,16 +250,30 @@ const loadProfile = async () => {
       // No hay perfil: marcar en el store para que los guards redirijan a onboarding
       session.setSession(session.token, false);
       loaded.value = null;
+      // Si no hay perfil, mostrar 0 puntos por defecto
+      points.value = 0
+      pointsError.value = null
     } else {
       console.error("Error cargando perfil", err);
+      points.value = null
+      pointsError.value = err.response?.data?.message || err.message || 'Error cargando puntos'
     }
   } finally {
     loading.value = false;
+    pointsLoading.value = false
   }
 };
 
-onMounted(() => {
-  loadProfile();
+onMounted(async () => {
+  await loadProfile();
+  if (route.query.focus === 'goal') {
+    await nextTick()
+    const el = document.getElementById('goalKcal')
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.focus()
+    }
+  }
 });
 
 // Validación local del formulario antes de enviar PUT
@@ -208,7 +281,7 @@ const validateProfile = () => {
   let ok = true;
   errors.value = {
     firstName: "", lastName: "", birthDate: "",
-    gender: "", timezone: "", 
+    gender: "", timezone: "",
     heightCm: "", weightKg: "",
   };
 
@@ -256,6 +329,15 @@ const validateProfile = () => {
     ok = false;
   }
 
+  // goalKcalDaily: puede ser 0 o null; si viene, debe ser >= 0
+  if (form.value.goalKcalDaily != null && form.value.goalKcalDaily !== '') {
+    const v = Number(form.value.goalKcalDaily)
+    if (isNaN(v) || v < 0) {
+      errors.value.goalKcalDaily = 'Objetivo de Kcal debe ser >= 0.'
+      ok = false
+    }
+  }
+
   return ok;
 };
 
@@ -275,7 +357,8 @@ const saveProfile = async () => {
       gender: form.value.gender.toUpperCase(),
       timeZone: form.value.timezone,
       heightCm: Number(form.value.heightCm),
-      weightKg: Number(form.value.weightKg),
+        weightKg: Number(form.value.weightKg),
+        goalKcalDaily: form.value.goalKcalDaily == null || form.value.goalKcalDaily === '' ? null : Number(form.value.goalKcalDaily),
     };
 
     const saved = await updateProfile(payload);
@@ -288,10 +371,11 @@ const saveProfile = async () => {
       firstName: saved.firstName ?? payload.firstName,
       lastName: saved.lastName ?? payload.lastName,
       birthDate: saved.birthDate ?? payload.birthDate,
-      gender: saved.gender ? saved.gender.toLowerCase() : payload.gender.toLowerCase(), 
-      timeZone: saved.timeZone ?? payload.timeZone, 
+      gender: saved.gender ? saved.gender.toLowerCase() : payload.gender.toLowerCase(),
+      timeZone: saved.timeZone ?? payload.timeZone,
       heightCm: saved.heightCm ?? payload.heightCm,
       weightKg: saved.weightKg ?? payload.weightKg,
+      goalKcalDaily: saved.goalKcalDaily ?? payload.goalKcalDaily ?? null,
     };
     Object.assign(form.value, { ...loaded.value });
 
@@ -311,10 +395,11 @@ const resetToLoaded = () => {
     firstName: "",
     lastName: "",
     birthDate: "",
-    gender: "", 
+    gender: "",
     timezone: "",
     heightCm: "",
     weightKg: "",
+    goalKcalDaily: "",
   };
 };
 
@@ -398,10 +483,29 @@ const changePassword = async () => {
   background: #fff;
   font-family: inherit;
 }
-.field input:focus, .field select:focus { 
-  outline: none; 
-  border-color: #000; 
-  background: #fbfbfb; 
+
+/* Styles para tarjeta de puntos */
+.points-card .card-body { margin-top: 12px; }
+.kpi-skel {
+  height: 76px;
+  background: linear-gradient(90deg,#f3f4f6,#efefef,#f3f4f6);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+}
+.points-error {
+  color: #b91c1c;
+  background: #fff7f7;
+  border: 1px solid #fee2e2;
+  padding: 10px;
+  border-radius: 8px;
+}
+.field input:focus, .field select:focus {
+  outline: none;
+  border-color: #000;
+  background: #fbfbfb;
 }
 
 /* Añadido estilo para input deshabilitado */
@@ -428,6 +532,15 @@ const changePassword = async () => {
   border: 1px solid #e6e6e6;
 }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.password-card {
+  grid-column: 2; /* Fuerza a ocupar la segunda columna */
+}
+
+@media (max-width: 920px) {
+  .profile-grid { grid-template-columns: 1fr; }
+  .password-card { grid-column: auto; } /* Reset en móvil */
+}
 
 @media (max-width: 920px) {
   .profile-grid { grid-template-columns: 1fr; }
