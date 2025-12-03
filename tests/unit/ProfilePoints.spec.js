@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+// Mock del servicio de autenticación para evitar llamadas reales a la API
 vi.mock('@/services/authService', () => {
   const getProfile = vi.fn()
   const updateProfile = vi.fn()
@@ -17,15 +18,17 @@ describe('Profile.vue — Mis Puntos (criterios de aceptación)', () => {
   })
 
   it('muestra el valor de points cuando la API responde', async () => {
+    // Simula que getProfile devuelve puntos
     getProfile.mockResolvedValue({ firstName: 'A', points: 42 })
     const wrapper = mount(Profile, { global: { stubs: ['router-link', 'KpiCard'] } })
 
+    // Espera a que se resuelva la promesa y Vue actualice el DOM
     await Promise.resolve()
     await wrapper.vm.$nextTick()
 
     const kpi = wrapper.find('kpi-card-stub')
     expect(kpi.exists()).toBe(true)
-    // valor como atributo en el stub
+    // El stub de KpiCard recibe el valor como atributo
     expect(kpi.attributes().value).toBe('42')
   })
 
@@ -38,15 +41,16 @@ describe('Profile.vue — Mis Puntos (criterios de aceptación)', () => {
 
     const kpi = wrapper.find('kpi-card-stub')
     expect(kpi.exists()).toBe(true)
+    // Verifica que se muestre 0 puntos correctamente
     expect(kpi.attributes().value).toBe('0')
   })
 
   it('muestra skeleton mientras getProfile está pendiente', async () => {
-    // promesa pendiente
+    // Crea una promesa que nunca se resuelve para simular carga infinita
     getProfile.mockImplementation(() => new Promise(() => {}))
     const wrapper = mount(Profile, { global: { stubs: ['router-link', 'KpiCard'] } })
 
-    // Inmediatamente debe mostrar skeleton
+    // El skeleton debe ser visible mientras se carga
     expect(wrapper.find('.kpi-skel').exists()).toBe(true)
   })
 
@@ -59,13 +63,14 @@ describe('Profile.vue — Mis Puntos (criterios de aceptación)', () => {
     await Promise.resolve()
     await wrapper.vm.$nextTick()
 
+    // Verifica que aparezca el mensaje de error
     const box = wrapper.find('.points-error')
     expect(box.exists()).toBe(true)
     expect(box.text()).toContain('API error')
   })
 
   it('al recargar /profile la tarjeta muestra total actualizado desde API', async () => {
-    // Primera carga devuelve 10
+    // Primer mount: devuelve 10 puntos
     getProfile.mockResolvedValueOnce({ firstName: 'A', points: 10 })
     const wrapper1 = mount(Profile, { global: { stubs: ['router-link', 'KpiCard'] } })
     await Promise.resolve()
@@ -74,7 +79,7 @@ describe('Profile.vue — Mis Puntos (criterios de aceptación)', () => {
     expect(kpi1.exists()).toBe(true)
     expect(kpi1.attributes().value).toBe('10')
 
-    // Simular recarga: nueva respuesta con 25
+    // Simular recarga: desmonta y remonta con nueva respuesta (25 puntos)
     wrapper1.unmount()
     getProfile.mockResolvedValueOnce({ firstName: 'A', points: 25 })
     const wrapper2 = mount(Profile, { global: { stubs: ['router-link', 'KpiCard'] } })
@@ -82,6 +87,7 @@ describe('Profile.vue — Mis Puntos (criterios de aceptación)', () => {
     await wrapper2.vm.$nextTick()
     const kpi2 = wrapper2.find('kpi-card-stub')
     expect(kpi2.exists()).toBe(true)
+    // Verifica que ahora muestra 25 puntos
     expect(kpi2.attributes().value).toBe('25')
   })
 
@@ -94,16 +100,17 @@ describe('Profile.vue — Mis Puntos (criterios de aceptación)', () => {
     await Promise.resolve()
     await wrapper.vm.$nextTick()
 
-    // Mensaje de error visible
+    // El mensaje de error debe ser visible
     const box = wrapper.find('.points-error')
     expect(box.exists()).toBe(true)
 
-    // El formulario debe seguir operativo: inputs presentes y botón guardar habilitado
+    // Pero el formulario sigue operativo: inputs disponibles, botón habilitado
     const nameInput = wrapper.find('input[placeholder="Nombre"]')
     expect(nameInput.exists()).toBe(true)
     await nameInput.setValue('Nuevo')
     const submit = wrapper.find('form').find('button[type="submit"]')
     expect(submit.exists()).toBe(true)
+    // El botón no debe estar deshabilitado por el error de carga de puntos
     expect(submit.attributes('disabled')).toBeUndefined()
   })
 
@@ -113,27 +120,31 @@ describe('Profile.vue — Mis Puntos (criterios de aceptación)', () => {
     await Promise.resolve()
     await wrapper.vm.$nextTick()
 
-    // No debe existir ningún input dentro de la tarjeta de puntos
+    // Verifica que no haya ningún input dentro de la tarjeta de puntos
+    // (el valor es de solo lectura a través de KpiCard)
     expect(wrapper.find('.points-card input').exists()).toBe(false)
   })
 
   it('GET /profile muestra goalKcalDaily en el formulario', async () => {
+    // La API devuelve el objetivo de calorías diarias
     getProfile.mockResolvedValue({ firstName: 'A', goalKcalDaily: 2100 })
     const wrapper = mount(Profile, { global: { stubs: ['router-link', 'KpiCard'] } })
     await Promise.resolve()
     await wrapper.vm.$nextTick()
 
+    // El input debe estar presente y mostrar el valor recuperado
     const goalInput = wrapper.find('#goalKcal')
     expect(goalInput.exists()).toBe(true)
     expect(goalInput.element.value).toBe('2100')
   })
 
   it('PUT /profile guarda goalKcalDaily y muestra loading/error correctamente', async () => {
-    // mock profile initial data (valid for validation)
+    // mock de datos iniciales para que la validación del formulario pase
     getProfile.mockResolvedValue({
       firstName: 'A', lastName: 'B', birthDate: '2000-01-01', gender: 'male', timezone: 'UTC', heightCm: 170, weightKg: 70, goalKcalDaily: 2000
     })
 
+    // Simula que la API guarda el nuevo objetivo (1800)
     const savedResponse = { firstName: 'A', goalKcalDaily: 1800 }
     updateProfile.mockResolvedValue(savedResponse)
 
@@ -145,17 +156,18 @@ describe('Profile.vue — Mis Puntos (criterios de aceptación)', () => {
     const goalInput = wrapper.find('#goalKcal')
     await goalInput.setValue('1800')
 
-    // Disparar submit
+    // Disparar el submit del formulario
     await wrapper.find('form').trigger('submit.prevent')
-    // esperar microtasks/promises
+    // Esperar a que se procese la promesa
     await Promise.resolve()
     await wrapper.vm.$nextTick()
 
+    // Verifica que updateProfile fue llamado con el nuevo valor
     expect(updateProfile).toHaveBeenCalled()
     const payload = updateProfile.mock.calls[0][0]
     expect(payload.goalKcalDaily).toBe(1800)
 
-    // Después de guardar, el formulario debe reflejar el valor guardado
+    // Después de guardar, el input debe reflejar el valor guardado
     const goalAfter = wrapper.find('#goalKcal')
     expect(goalAfter.element.value).toBe('1800')
   })
@@ -170,6 +182,7 @@ describe('Guards: protección de /profile', () => {
     const { default: router } = await import('@/router/index.js')
     await router.push('/profile')
     await router.isReady()
+    // No debe permitir acceder a /profile si no está autenticado
     expect(router.currentRoute.value.name).not.toBe('Profile')
   })
 })

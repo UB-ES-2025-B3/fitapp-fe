@@ -9,6 +9,7 @@
           </div>
 
           <div class="actions">
+            <input v-model="searchQuery" type="text" placeholder="Buscar ruta..." class="search-input" />
             <router-link class="btn" :to="{ name: 'RoutesNew' }">Crear ruta</router-link>
           </div>
         </header>
@@ -26,8 +27,12 @@
               </div>
             </div>
 
+            <div v-else-if="filteredRoutes.length === 0" class="empty-state">
+              <p>No se encontraron rutas con ese nombre.</p>
+            </div>
+
             <ul v-else class="routes-list">
-              <li v-for="r in routes" :key="r.id" class="route-row">
+              <li v-for="r in filteredRoutes" :key="r.id" class="route-row">
                 <div class="route-info">
                   <strong class="route-name">{{ r.name }}</strong>
                   <span class="route-distance">{{ r.distanceKm ? Number(r.distanceKm).toFixed(2) + ' km' : formatKm(r.distanceMeters) }}</span>
@@ -54,15 +59,29 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import ConfirmModal from '@/components/ConfirmModal.vue'
 defineOptions({ name: 'RoutesList' })
 import { getRoutes, deleteRoute } from '@/services/routesService.js'
 
 const routes = ref([])
+// Estado reactivo para el término de búsqueda. Se vincula bidireccionalemente al input
+// para permitir filtrado instantáneo de rutas sin recargar la API.
+const searchQuery = ref('')
 const loading = ref(true)
 const error = ref('')
 const deleting = ref(null)
+
+// Computed que filtra rutas por nombre de forma case-insensitive.
+// Si searchQuery está vacío, devuelve todas las rutas.
+// Si hay texto, devuelve solo las rutas cuyo nombre contiene el texto (sin importar mayúsculas/minúsculas).
+const filteredRoutes = computed(() => {
+  if (!searchQuery.value.trim()) {
+    return routes.value
+  }
+  const query = searchQuery.value.toLowerCase()
+  return routes.value.filter(r => r.name.toLowerCase().includes(query))
+})
 
 const load = async () => {
   loading.value = true
@@ -135,9 +154,11 @@ function showToast(msg, ms = 1800) {
 <style scoped>
 .page-container { padding: 28px 20px; display:flex; justify-content:center; }
 .card { width:100%; max-width:1000px; background:#fff; border-radius:12px; padding:18px; border:1px solid #eee; box-shadow:0 8px 30px rgba(12,12,12,0.05);}
-.card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.card-header { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:12px; flex-wrap:wrap }
 .card-header h1 { margin:0; font-size:22px }
 .muted { color:#666; margin-top:6px }
+.actions { display:flex; gap:12px; align-items:center; flex-wrap:wrap }
+.search-input { padding:10px 14px; border:1px solid #e6e6e6; border-radius:10px; font-size:14px; min-width:200px }
 .card-body { padding-top:6px }
 .center { text-align:center; padding:24px }
 .error-box { background:#fef2f2; color:#c53030; padding:12px; border-radius:10px; border:1px solid #fecaca }

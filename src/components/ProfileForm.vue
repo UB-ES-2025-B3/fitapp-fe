@@ -156,7 +156,7 @@ const validate = () => {
   // Reset de errores antes de validar
   errors.value = {
     firstName: '', lastName: '', birthDate: '',
-    gender: '', timezone: '', heightCm: '', weightKg: ''
+    gender: '', timezone: '', heightCm: '', weightKg: '', goalKcalDaily: ''
   }
 
   // Nombre requerido
@@ -221,7 +221,10 @@ const validate = () => {
     ok = false
   }
 
-  // goalKcalDaily: puede ser 0 o null, pero si viene, debe ser >= 0
+  // Validación del objetivo de calorías:
+  // - Puede ser 0 o null (usuario no ha establecido objetivo)
+  // - Si tiene un valor, debe ser un número >= 0
+  // - Rechaza valores negativos o no numéricos
   if (form.value.goalKcalDaily != null && form.value.goalKcalDaily !== '') {
     const v = Number(form.value.goalKcalDaily)
     if (isNaN(v) || v < 0) {
@@ -248,6 +251,8 @@ const handleSubmit = async () => {
       timeZone: form.value.timezone,
       heightCm: Number(form.value.heightCm),
       weightKg: Number(form.value.weightKg),
+      // goalKcalDaily: si está vacío o null, lo enviamos como null (sin objetivo)
+      // Si tiene valor, lo convertimos a número
       goalKcalDaily: form.value.goalKcalDaily == null || form.value.goalKcalDaily === '' ? null : Number(form.value.goalKcalDaily)
     }
 
