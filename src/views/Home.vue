@@ -318,7 +318,10 @@ const getStreakMessage = (racha) => {
   return "Racha legendaria. Sigue así"
 }
 
-// helpers para mostrar calorías con progreso cuando hay objetivo ---
+// --- Computeds para mostrar calorías con progreso cuando hay objetivo ---
+// Calcula el valor a mostrar en el KPI de calorías:
+// - Si hay objetivo (goal > 0): muestra "X / Y" (calorías actuales / calorías objetivo)
+// - Si no hay objetivo: muestra solo "X" (calorías actuales)
 const caloriesDisplayValue = computed(() => {
   if (!kpis.value) return ''
   const val = Number(kpis.value.caloriesKcalToday) || 0
@@ -329,6 +332,9 @@ const caloriesDisplayValue = computed(() => {
   return val
 })
 
+// Calcula el subtítulo a mostrar bajo el valor de calorías:
+// - Si hay objetivo (goal > 0): muestra el porcentaje del objetivo alcanzado (ej: "75% del objetivo")
+// - Si no hay objetivo: muestra el mensaje anterior ("Energía gastada estimada" o fallback si val=0)
 const caloriesSubtitle = computed(() => {
   if (!kpis.value) return ''
   const val = Number(kpis.value.caloriesKcalToday) || 0
