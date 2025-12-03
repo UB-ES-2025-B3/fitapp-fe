@@ -170,16 +170,18 @@ const localTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || ''
 const loading = ref(false);
 const saving = ref(false);
 const changingPwd = ref(false);
-// Points UI state (tarjeta Mis Puntos)
+// --- Estados para la tarjeta Mis Puntos ---
+// Almacena el valor de puntos del usuario
 const points = ref(null)
-// Por defecto true para que el skeleton sea visible inmediatamente al montar
+// Flag de carga: por defecto true para mostrar el skeleton al montar
 const pointsLoading = ref(true)
+// Mensaje de error si falla la carga de puntos
 const pointsError = ref(null)
 
 // Guardar datos leídos del servidor para poder resetear el formulario
 const loaded = ref(null);
 
-// Form model (mapea la shape de la API: firstName,lastName,birthDate,heightCm,weightKg)
+// Form model (mapea la shape de la API: firstName,lastName,birthDate,heightCm,weightKg,goalKcalDaily)
 const form = ref({
   firstName: "",
   lastName: "",
@@ -188,6 +190,7 @@ const form = ref({
   timezone: "",
   heightCm: null,
   weightKg: null,
+  // Nuevo campo: objetivo de calorías diarias (puede ser null si no está definido)
   goalKcalDaily: null,
 });
 
@@ -199,6 +202,7 @@ const errors = ref({
   timezone: "",
   heightCm: "",
   weightKg: "",
+  goalKcalDaily: ""
 });
 
 // Campos UI para cambiar contraseña (solo UI, sin API aún)
