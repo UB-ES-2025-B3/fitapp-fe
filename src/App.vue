@@ -21,6 +21,10 @@
               >Rutas</router-link>
               <router-link
               class="nav-link"
+              :to="{ name: 'HistoryList' }"
+              >Historial</router-link>
+              <router-link
+              class="nav-link"
               :to="{ name: 'Evolution' }"
               >Evolución</router-link>
               <router-link
