@@ -92,7 +92,7 @@ jobs:
             ${{ secrets.ACR_LOGIN_SERVER }}/fitapp-backend:latest
       
       - name: Esperar a que el Backend esté listo
-        run: timeout 100s bash -c 'until curl --silent --fail http://localhost:8080/v3/api-docs; do sleep 5; done'
+        run: timeout 100s bash -c 'until curl --silent --fail http://localhost:8080/actuator/health; do sleep 5; done'
       # --- Logs Back ---
       - name: Ver Logs del Backend (Si falla el arranque)
         if: failure() 
