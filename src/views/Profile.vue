@@ -126,6 +126,8 @@
             <small v-if="pwdErrors.confirm" class="error">{{ pwdErrors.confirm }}</small>
           </label>
 
+          <small v-if="pwdErrors.server" class="error">{{ pwdErrors.server }}</small>
+
           <div class="actions">
             <button type="submit" class="btn" :disabled="changingPwd">
               <span v-if="changingPwd">Procesando...</span>
@@ -141,7 +143,7 @@
 <script setup>
 import { ref, onMounted, nextTick} from "vue";
 import { useSessionStore } from "@/stores/session.js";
-import { getProfile, updateProfile } from "@/services/authService.js";
+import { getProfile, updateProfile, updatePassword } from "@/services/authService.js";
 import KpiCard from '@/components/KpiCard.vue'
 import { useRouter, useRoute } from "vue-router";
 
@@ -216,6 +218,7 @@ const pwdErrors = ref({
   current: "",
   new: "",
   confirm: "",
+  server: ""
 });
 
 
@@ -428,20 +431,29 @@ const validatePwd = () => {
 
 // Cambio de contraseña: no hay API aún, se simula el flujo UI
 const changePassword = async () => {
-  // No hay API aún: mantenemos diseño y validación, simulamos resultado localmente.
-  if (!validatePwd()) return;
+  if (!validatePwd()) return; // Validar contraseñas antes de enviar
   changingPwd.value = true;
+  pwdErrors.value.server = ""; // Limpiar error anterior
+
   try {
-    // Simular proceso breve
-    await new Promise((r) => setTimeout(r, 700));
-    // Limpiar campos
+    // Enviar solicitud al backend
+    await updatePassword(
+      pwd.value.current, 
+      pwd.value.new, 
+      pwd.value.confirm
+    );
+
+    // Limpiar campos y mostrar mensaje de éxito
     pwd.value.current = "";
     pwd.value.new = "";
     pwd.value.confirm = "";
-    alert("Cambio de contraseña: funcionalidad no disponible en el backend. Diseño mantenido.");
+    pwdErrors.value = { current: "", new: "", confirm: "", server: "" };
+    alert("Contraseña cambiada exitosamente.");
   } catch (err) {
-    console.error("Error simulando cambio de contraseña", err);
-    alert("Error al procesar cambio de contraseña.");
+    // Manejar errores del backend y mostrarlos en el DOM
+    const errorMessage = err.response?.data?.message || err.message || "Error al cambiar la contraseña.";
+    pwdErrors.value.server = errorMessage;
+    console.error("Error al cambiar la contraseña:", err);
   } finally {
     changingPwd.value = false;
   }
