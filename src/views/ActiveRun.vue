@@ -68,6 +68,27 @@
       :initialActivityType="execution?.activityType" @cancel="closeFinishModal"
       @save="handleFinish"
     />
+
+    <div v-if="showPointsModal" class="points-modal-overlay">
+      <div class="points-modal-card">
+        <div class="points-icon">🏆</div>
+        <h3>¡Ruta finalizada!</h3>
+        
+        <p v-if="isBonus" class="bonus-msg">¡Objetivo diario superado!</p>
+        <p v-else>¡Gran trabajo!</p>
+
+        <div class="points-score">
+          <span class="plus">+</span>
+          <span class="amount">{{ earnedPoints }}</span>
+          <span class="label">Puntos</span>
+        </div>
+
+        <button class="btn btn-primary" @click="closePointsModalAndRedirect">
+          Volver a Inicio
+        </button>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -82,6 +103,7 @@ import {
   finishExecution 
 } from '@/services/executionService'
 import ExecutionFinishModal from '@/components/ExecutionFinishModal.vue'
+import { getProfile } from '@/services/authService'
 
 const session = useSessionStore()
 const router = useRouter()
@@ -101,6 +123,11 @@ const showFinishModal = ref(false)
 // Estado del Cronómetro
 const elapsedTime = ref(0)
 const timerInterval = ref(null)
+
+// Variables de estado para el modal
+const showPointsModal = ref(false)
+const earnedPoints = ref(0)
+const isBonus = ref(false)
 
 // --- LÓGICA DEL CRONÓMETRO ---
 
@@ -129,7 +156,6 @@ const updateTimer = () => {
 
   const now = new Date()
   
-  // [CAMBIO CLAVE 1] 
   // Añadimos 'Z' para indicar que la hora del servidor viene en UTC.
   // Esto arregla el bug de los 3600s si tu servidor está en la nube/docker.
   // Si tu servidor y tu PC tienen la misma hora local, quita la 'Z'.
@@ -145,7 +171,7 @@ const updateTimer = () => {
     diffSec = Math.max(0, totalSec - totalPausedSec)
     
   } else if (execution.value.status === 'PAUSED') {
-    // [CAMBIO CLAVE 2] Aplicar la misma lógica 'Z' al pauseTime
+    // Aplicar la misma lógica 'Z' al pauseTime
     if (execution.value.pauseTime) {
       const pauseTime = new Date(execution.value.pauseTime + (execution.value.pauseTime.endsWith('Z') ? '' : 'Z'))
       const totalMs = pauseTime - startTime
@@ -244,6 +270,7 @@ const closeFinishModal = () => {
   // (aquí no hace falta porque está pausada).
 }
 
+// FUNCIÓN HANDLE FINISH (Simplificada)
 const handleFinish = async (payload) => {
   if (!payload.activityType) {
     error.value = "Debes seleccionar un tipo de actividad."
@@ -254,13 +281,48 @@ const handleFinish = async (payload) => {
   error.value = ''
   
   try {
-    await finishExecution(execution.value.id, payload)
-    router.push('/') 
-    session.clearActiveExecution()
-  } catch {
+    // 1. LLAMADA AL BACKEND
+    // La respuesta ya trae todo calculado: { points: 150, calories: 450.5, ... }
+    const result = await finishExecution(execution.value.id, payload)
+    
+    // 2. LEER DATOS DEL BACKEND
+    const backendPoints = result.points !== undefined ? Number(result.points) : 0
+    const caloriesBurned = Number(result.calories) || 0 
+
+    // 3. (OPCIONAL) LEER PERFIL SOLO PARA UX (Mostrar etiqueta "¡Objetivo Superado!")
+    // Esto es solo visual, no afecta a los puntos guardados
+    try {
+      const userProfile = await getProfile()
+      const dailyGoalKcal = Number(userProfile.goalKcalDaily) || 0
+      
+      // Si hay objetivo y las calorías de esta ruta lo superan (o ayudan mucho)
+      if (dailyGoalKcal > 0 && caloriesBurned >= dailyGoalKcal) {
+        isBonus.value = true
+      } else {
+        isBonus.value = false
+      }
+    } catch (e) {
+      console.warn("No se pudo cargar perfil para comparar objetivo", e)
+    }
+
+    // 4. MOSTRAR MODAL
+    earnedPoints.value = backendPoints
+    showFinishModal.value = false
+    showPointsModal.value = true
+
+  } catch (err) {
+    console.error(err)
     error.value = 'Error al finalizar la ejecución.'
+  } finally {
     isFinishing.value = false
   }
+}
+
+// Función para cerrar el modal de puntos y salir
+const closePointsModalAndRedirect = () => {
+  showPointsModal.value = false
+  session.clearActiveExecution()
+  router.push('/') 
 }
 </script>
 
@@ -366,4 +428,130 @@ const handleFinish = async (payload) => {
   color: white;
 }
 .btn-finish:hover:not(:disabled) { background: #c0392b; }
+
+/* Estilos para Gamificación */
+.points-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+  backdrop-filter: blur(6px);
+}
+
+.points-modal-card {
+  background: white;
+  padding: 40px 30px;
+  border-radius: 28px;
+  text-align: center;
+  max-width: 360px;
+  width: 90%;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+  animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+@keyframes popIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.points-icon {
+  font-size: 72px;
+  margin-bottom: 12px;
+  display: inline-block;
+  filter: drop-shadow(0 4px 0px rgba(0,0,0,0.1));
+}
+
+.points-modal-card h3 {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  color: #111;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+/* Mensaje de texto (Gran trabajo / Bonus) */
+.points-modal-card p, .bonus-msg {
+  margin: 0 0 24px 0;
+  color: #666;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.bonus-msg {
+  color: #d97706 !important;
+  font-weight: 700;
+  background: #fffbeb;
+  padding: 4px 12px;
+  border-radius: 20px;
+  display: inline-block;
+}
+
+.points-score {
+  background: linear-gradient(180deg, #fffbeb 0%, #fff7ed 100%);
+  border: 2px solid #fbbf24;
+  border-radius: 50px; /* Bordes redondos tipo píldora */
+  padding: 8px 32px;   /* Menos altura, más ancho lateral */
+  display: inline-flex; /* IMPORTANTE: Se ajusta al contenido, no ocupa todo el ancho */
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  color: #b45309;
+  margin-bottom: 28px;
+  box-shadow: 0 4px 10px rgba(251, 191, 36, 0.25);
+  min-width: 120px;
+}
+
+.points-score .plus {
+  font-size: 20px;
+  font-weight: 800;
+  color: #d97706;
+}
+
+.points-score .amount {
+  font-size: 48px; /* Número grande */
+  font-weight: 900;
+  line-height: 1;
+  color: #92400e;
+  font-family: monospace; /* Alinea mejor los números */
+  letter-spacing: -2px;
+}
+
+.points-score .label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #d97706;
+  margin-left: 6px;
+}
+
+/* Botón específico del modal */
+.btn-primary {
+  background: #111;
+  color: #fff;
+  width: 100%;
+  padding: 14px;
+  border-radius: 14px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.1s;
+  font-size: 15px;
+}
+.btn-primary:active { transform: scale(0.98); }
+
+/* Ocultar desglose técnico si no lo quieres ver, o estilizarlo simple */
+.points-breakdown {
+  display: none; 
+}
+
 </style>
