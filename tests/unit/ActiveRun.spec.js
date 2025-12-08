@@ -12,6 +12,11 @@ vi.mock('@/services/executionService', () => ({
   finishExecution: vi.fn()
 }))
 
+// Mock de authService para obtener perfil (objetivo diario)
+vi.mock('@/services/authService', () => ({
+  getProfile: vi.fn()
+}))
+
 // Mock Router
 const pushMock = vi.fn()
 vi.mock('vue-router', () => ({
@@ -24,6 +29,7 @@ import ActiveRun from '@/views/ActiveRun.vue'
 import ExecutionFinishModal from '@/components/ExecutionFinishModal.vue' 
 import { getRoute } from '@/services/routesService'
 import { pauseExecution, resumeExecution, finishExecution } from '@/services/executionService'
+import { getProfile } from '@/services/authService'
 
 describe('ActiveRun.vue', () => {
   beforeEach(() => {
@@ -113,44 +119,110 @@ describe('ActiveRun.vue', () => {
     expect(resumeExecution).toHaveBeenCalledWith('exec1')
   })
 
-  it('Abrir modal de finalizar y guardar', async () => {
+
+  it('Flujo completo: Finalizar -> Ver Puntos -> Volver a Inicio', async () => {
+    // A. SETUP DE DATOS
     getRoute.mockResolvedValue(mockRoute)
-    finishExecution.mockResolvedValue({}) 
+    
+    // 1. Mock de finishExecution: Devuelve puntos y calorías
+    finishExecution.mockResolvedValue({ 
+      id: 'exec1', 
+      status: 'FINISHED', 
+      points: 150, 
+      calories: 600 
+    })
+
+    // 2. Mock de getProfile: Objetivo diario menor a calorías (para activar bonus visual)
+    getProfile.mockResolvedValue({ 
+      firstName: 'Test', 
+      points: 1000, 
+      goalKcalDaily: 500 
+    })
 
     const wrapper = mount(ActiveRun, {
       global: {
-        plugins: [createTestingPinia({
+        plugins: [createTestingPinia({ 
           initialState: { session: { activeExecution: mockExecution } },
           stubActions: false 
         })],
-        stubs: {
-          RouterLink: true,
-          // Usamos true para que Vue Test Utils cree un stub estándar
-          ExecutionFinishModal: true 
-        }
+        stubs: { RouterLink: true, ExecutionFinishModal: true }
       }
     })
     await flushPromises()
 
-    // 1. Clic en Finalizar para abrir modal
+    // B. ABRIR MODAL DE FINALIZAR
     await wrapper.find('.btn-finish').trigger('click')
-    // Esperar a que Vue actualice el DOM (v-if="showFinishModal")
     await wrapper.vm.$nextTick()
     
-    // 2. Encontrar el componente usando la IMPORTACIÓN (Infalible)
-    const modal = wrapper.findComponent(ExecutionFinishModal)
-    expect(modal.exists()).toBe(true)
+    // Validar que se abre el modal de input
+    const finishModal = wrapper.findComponent(ExecutionFinishModal)
+    expect(finishModal.exists()).toBe(true)
 
-    // 3. Emitir evento 'save' desde el stub
+    // C. GUARDAR (Simular evento 'save')
     const payload = { activityType: 'RUNNING_MODERATE', notes: 'Test' }
-    modal.vm.$emit('save', payload)
+    finishModal.vm.$emit('save', payload)
     
-    // 4. Esperar ciclos
-    await wrapper.vm.$nextTick()
+    // Esperar promesas (llamada a API)
     await flushPromises()
     
-    // 5. Verificar
+    // VERIFICACIONES INTERMEDIAS
+    // 1. Se llamó al servicio con los datos correctos
     expect(finishExecution).toHaveBeenCalledWith('exec1', payload)
+    
+    // 2. [CAMBIO IMPORTANTE] NO se debe haber redirigido todavía
+    expect(pushMock).not.toHaveBeenCalled() 
+
+    // D. VERIFICAR MODAL DE PUNTOS
+    // Buscamos el contenedor del modal de puntos
+    const pointsModal = wrapper.find('.points-modal-card')
+    expect(pointsModal.exists()).toBe(true)
+    
+    // 1. Verifica que muestra los puntos del backend
+    expect(pointsModal.text()).toContain('150')
+    
+    // 2. Verifica que muestra mensaje de bonus (porque 600 kcal > 500 objetivo)
+    expect(pointsModal.text()).toContain('Objetivo diario superado')
+
+    // E. CERRAR Y REDIRIGIR
+    const closeBtn = pointsModal.find('.btn-primary') // Botón "Volver a Inicio"
+    await closeBtn.trigger('click')
+    
+    // Ahora SÍ debe redirigir
     expect(pushMock).toHaveBeenCalledWith('/')
   })
+
+  it('Muestra mensaje estándar si no supera objetivo', async () => {
+    getRoute.mockResolvedValue(mockRoute)
+    
+    // Backend devuelve pocos puntos y pocas calorías
+    finishExecution.mockResolvedValue({ points: 10, calories: 100 })
+    
+    // Perfil con objetivo alto (no se supera)
+    getProfile.mockResolvedValue({ goalKcalDaily: 2000 })
+
+    const wrapper = mount(ActiveRun, {
+      global: {
+        plugins: [createTestingPinia({ initialState: { session: { activeExecution: mockExecution } } })],
+        stubs: { RouterLink: true, ExecutionFinishModal: true }
+      }
+    })
+    await flushPromises()
+
+    // Simular flujo rápido
+    const finishModal = wrapper.findComponent(ExecutionFinishModal)
+    // Forzamos la apertura lógica (o simulamos clicks)
+    wrapper.vm.showFinishModal = true 
+    await wrapper.vm.$nextTick()
+    
+    wrapper.findComponent(ExecutionFinishModal).vm.$emit('save', { activityType: 'WALK' })
+    await flushPromises()
+
+    const pointsModal = wrapper.find('.points-modal-card')
+    
+    // Verificar que NO sale el mensaje de bonus
+    expect(pointsModal.text()).not.toContain('Objetivo diario superado')
+    expect(pointsModal.text()).toContain('Gran trabajo')
+    expect(pointsModal.text()).toContain('10') // Puntos base
+  })
+
 })

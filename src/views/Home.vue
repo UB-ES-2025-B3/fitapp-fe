@@ -326,10 +326,12 @@ const caloriesDisplayValue = computed(() => {
   if (!kpis.value) return ''
   const val = Number(kpis.value.caloriesKcalToday) || 0
   const goal = kpis.value.goalKcalDaily == null ? null : Number(kpis.value.goalKcalDaily)
+  const valFixed = Number(val.toFixed(1)) // <= FORMATEO BONITO
+
   if (goal && goal > 0) {
-    return `${val} / ${goal}`
+    return `${valFixed} / ${goal}`
   }
-  return val
+  return valFixed
 })
 
 // Calcula el subtítulo a mostrar bajo el valor de calorías:

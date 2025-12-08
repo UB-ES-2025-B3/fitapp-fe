@@ -42,14 +42,18 @@
                   <th>Ruta</th>
                   <th>Distancia</th>
                   <th>Tiempo</th>
+                  <th>Calorías</th>
+                  <th>Puntos</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="execution in sortedExecutions" :key="execution.id" class="execution-row">
-                  <td class="date-cell">{{ formatDate(execution.startedAt) }}</td>
-                  <td class="route-cell">{{ execution.routeName }}</td>
-                  <td class="distance-cell">{{ execution.distanceKm ? Number(execution.distanceKm).toFixed(2) : '-' }} km</td>
-                  <td class="time-cell">{{ formatDuration(execution.durationSeconds) }}</td>
+                <tr v-for="execution in sortedExecutions" :key="execution.date" class="execution-row">
+                  <td>{{ formatDate(execution.date) }}</td>
+                  <td>{{ execution.routeName }}</td>
+                  <td>{{ execution.distanceKm ? Number(execution.distanceKm).toFixed(2) : '-' }} km</td>
+                  <td>{{ formatDuration(execution.durationSeconds) }}</td>
+                  <td>{{ execution.calories }}</td>
+                  <td>{{ execution.points }}</td>
                 </tr>
               </tbody>
             </table>
@@ -82,7 +86,15 @@ const loadHistory = async () => {
   try {
     const data = await getExecutionHistory()
     // Asigna los datos obtenidos (asume que ya vienen ordenados, pero lo hacemos en el computed por seguridad)
-    executions.value = Array.isArray(data) ? data : []
+    executions.value = (Array.isArray(data) ? data : []).map(item => ({
+      routeName: item.routeName,
+      distanceKm: item.distanceKm ?? 0,
+      durationSeconds: item.durationSec ?? 0,
+      calories: item.calories ?? 0,
+      points: item.points ?? 0,
+      date: item.endTime ?? item.startedAt ?? null
+    }))
+
   } catch (err) {
     console.error("Error cargando historial:", err)
     error.value = err.response?.data?.message || err.message || "No se pudo cargar el historial."
@@ -96,8 +108,8 @@ const loadHistory = async () => {
  */
 const sortedExecutions = computed(() => {
   return [...executions.value].sort((a, b) => {
-    const dateA = new Date(a.startedAt)
-    const dateB = new Date(b.startedAt)
+    const dateA = new Date(a.date)
+    const dateB = new Date(b.date)
     return dateB - dateA
   })
 })

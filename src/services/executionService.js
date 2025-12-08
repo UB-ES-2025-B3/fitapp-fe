@@ -57,13 +57,13 @@ export const finishExecution = async (executionId, payload) => {
  *
  * Estructura esperada de cada ejecución:
  * {
- *   id: string,
- *   routeId: string,
  *   routeName: string,
+ *   endTime: string,
  *   distanceKm: number,
- *   durationSeconds: number,
- *   startedAt: ISO8601 string,
- *   completedAt: ISO8601 string (opcional)
+ *   activityType: string,
+ *   durationSec: number,
+ *   calories: number,
+ *   points: number,
  * }
  */
 export const getExecutionHistory = async () => {
