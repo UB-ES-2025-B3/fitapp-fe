@@ -115,10 +115,13 @@ describe('Ejecución de Actividad y Gamificación', () => {
     // 6. VERIFICACIÓN GAMIFICACIÓN (US-14)
     // El modal de puntos debe aparecer ahora
     cy.get('.points-modal-card').should('be.visible');
-    cy.get('.points-icon').should('contain', '🏆');
+    // Verificamos elementos del nuevo diseño minimalista
+    // Icono (🏆 o 🏁)
+    cy.get('.minimal-icon').should('be.visible');
     
-    // Verificamos que aparezca la palabra "Puntos" y algún número
-    cy.get('.points-score').should('contain', 'Puntos');
+    // Puntuación grande y etiqueta PTS
+    cy.get('.minimal-score').should('contain', 'PTS');
+    cy.get('.score-value').should('be.visible'); // El número grande
     
     // 7. Volver a Inicio
     cy.contains('button', 'Volver a Inicio').click();
