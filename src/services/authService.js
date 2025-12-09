@@ -59,10 +59,12 @@ export async function updateProfile(payload) {
 
 
 
-// Cambiar contraseña - cuando tengamos hecho el endpoint en el backend. Ejemplo:
-// export async function changePassword({ currentPassword, newPassword }) {
-//   const res = await api.post("/api/v1/auth/change-password", { currentPassword, newPassword });
-//   return res.data;
-// }
-
-
+// Cambiar contraseña
+export async function updatePassword(currentPassword, newPassword, confirmPassword) {
+  const response = await api.post('/api/v1/auth/change-password', {
+    currentPassword,
+    newPassword,
+    confirmPassword
+  })
+  return response.data
+}

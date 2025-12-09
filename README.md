@@ -145,3 +145,6 @@ Para asegurar la calidad en el pipeline de despliegue, se recomienda este orden 
 - npm run test:unit (Bloqueante)
 - npm run test:e2e (Validación de integración)
 - npm run build
+
+## Algunos tests fallan pro pinia (usar el siguiente comando)
+- npm install --save-dev @pinia/testing chart.js vue-chartjs

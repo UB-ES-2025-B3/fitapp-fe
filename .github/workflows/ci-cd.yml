@@ -1,0 +1,177 @@
+name: CI/CD FitApp Frontend
+
+on:
+  push:
+    branches: [ main, preprod, dev ] 
+  pull_request:
+    branches: [ main, preprod, dev ]
+  workflow_dispatch:
+
+jobs:
+  # --- JOB 1: CI (Lint & Unit) ---
+  ci-check:
+    name: Calidad del Código (Lint & Unit)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint (Bloqueante)
+        run: npm run lint
+
+      - name: Unit Tests (Vitest)
+        run: npm run test:unit
+
+  # --- JOB 2: E2E Testing (Cypress) ---
+  e2e-test:
+    name: Cypress E2E Testing
+    runs-on: ubuntu-latest
+    needs: ci-check # Solo si el código base está bien
+    
+    # Servicio de Base de Datos Efímera
+    services:
+      mysql:
+        image: mysql:8.0.33
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: fitapp_test_db
+          MYSQL_USER: test_user
+          MYSQL_PASSWORD: test_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -u root -proot"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout código Frontend
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      # --- LEVANTAR BACKEND ---
+      - name: Login en ACR
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Arrancar Backend (Spring Boot)
+        # --network host permite que:
+        # 1. El back vea a MySQL en localhost:3306
+        # 2. El front (Cypress) vea al back en localhost:8080
+        run: |
+          docker run -d \
+            --name backend-container \
+            --network host \
+            -e DB_URL="jdbc:mysql://127.0.0.1:3306/fitapp_test_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true" \
+            -e DB_USER=test_user \
+            -e DB_PASSWORD=test_password \
+            -e PRIVATE_KEY="clave_secreta_para_tests" \
+            -e JWT_TTL=3600 \
+            -e APP_CORS_ORIGINS="http://localhost:5173" \
+            ${{ secrets.ACR_LOGIN_SERVER }}/fitapp-backend:latest
+      
+      - name: Esperar a que el Backend esté listo
+        run: timeout 100s bash -c 'until curl --silent --fail http://localhost:8080/actuator/health; do sleep 5; done'
+      # --- Logs Back ---
+      - name: Ver Logs del Backend (Si falla el arranque)
+        if: failure() 
+        run: docker logs backend-container
+
+      # --- EJECUTAR CYPRESS ---
+      - name: Cypress Run
+        uses: cypress-io/github-action@v6
+        with:
+          start: npm run dev
+          wait-on: 'http://localhost:5173'
+          browser: chrome
+          browser-args: --use-gl=swiftshader --disable-dev-shm-usage --force-device-scale-factor=1 --ignore-gpu-blocklist
+        env:
+          # Configuramos el Front para que ataque al Back local y NO use Mocks
+          VITE_API_URL: http://localhost:8080
+          VITE_USE_MOCKS: 'false'
+          VITE_MAPBOX_ACCESS_TOKEN: ${{ secrets.VITE_MAPBOX_ACCESS_TOKEN }} 
+      
+      # --- GUARDAR EVIDENCIAS (Solo si falla) ---
+      # Esto sube las capturas de pantalla a GitHub para que las puedas ver
+      - name: Subir Capturas de Pantalla Cypress
+        uses: actions/upload-artifact@v4
+        if: failure() # Solo corre si Cypress falló
+        with:
+          name: cypress-screenshots
+          path: cypress/screenshots
+          retention-days: 5 # Se borran solas a los 5 días
+
+  # --- JOB 3: DESPLIEGUE (Solo si pasa TODO) ---
+  build-and-deploy:
+    name: Desplegar a Azure
+    runs-on: ubuntu-latest
+    needs: [ci-check, e2e-test] # Espera a Unitarios Y Cypress
+    
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref != 'refs/heads/dev'
+
+    # Selección automática del entorno
+    environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'preprod' }}
+
+    steps:
+      # 1. Descargar código
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      # 2. Login en Azure
+      - name: 'Login en Azure'
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # 3. Login en ACR
+      - name: 'Login en Azure Container Registry'
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      # 4. Build & Push
+      - name: Construir y subir la imagen Docker para el Frontend
+        run: |
+          docker build . \
+            --build-arg VITE_API_URL=${{ secrets.VITE_API_URL }} \
+            --build-arg VITE_MAPBOX_ACCESS_TOKEN=${{ secrets.VITE_MAPBOX_ACCESS_TOKEN }} \
+            -t ${{ secrets.ACR_LOGIN_SERVER }}/fitapp-frontend:${{ github.sha }}
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/fitapp-frontend:${{ github.sha }}
+
+      # 5. Desplegar
+      # Usa la VARIABLE 'APP_NAME' para seleccionar donde desplegar según el entorno.
+      - name: 'Desplegar en Azure App Service (Frontend)'
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.APP_NAME }}
+          images: '${{ secrets.ACR_LOGIN_SERVER }}/fitapp-frontend:${{ github.sha }}'
+
+      # 6. Logout
+      - name: Logout de Azure
+        if: always()
+        run: |
+          docker logout ${{ secrets.ACR_LOGIN_SERVER }}
+          az logout

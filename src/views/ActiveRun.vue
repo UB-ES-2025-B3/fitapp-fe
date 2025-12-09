@@ -68,6 +68,30 @@
       :initialActivityType="execution?.activityType" @cancel="closeFinishModal"
       @save="handleFinish"
     />
+
+    <div v-if="showPointsModal" class="points-modal-overlay">
+      <div class="points-modal-card">
+        
+        <div class="minimal-icon">{{ earnedPoints > 0 ? '🏆' : '🏁' }}</div>
+        
+        <h3 v-if="earnedPoints > 0">¡Objetivo conseguido!</h3>
+        <h3 v-else>Ruta finalizada</h3>
+        
+        <p v-if="isBonus" class="bonus-text">Has superado tu meta diaria</p>
+        <p v-else-if="earnedPoints > 0" class="subtext">Gran esfuerzo, sigue así.</p>
+        <p v-else class="subtext">Buen entreno, ¡a por la próxima!</p>
+
+        <div class="minimal-score">
+          <span class="score-value">{{ earnedPoints }}</span>
+          <span class="score-label">PTS</span>
+        </div>
+
+        <button class="btn btn-primary" @click="closePointsModalAndRedirect">
+          Volver a Inicio
+        </button>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -82,6 +106,7 @@ import {
   finishExecution 
 } from '@/services/executionService'
 import ExecutionFinishModal from '@/components/ExecutionFinishModal.vue'
+import { getProfile } from '@/services/authService'
 
 const session = useSessionStore()
 const router = useRouter()
@@ -101,6 +126,11 @@ const showFinishModal = ref(false)
 // Estado del Cronómetro
 const elapsedTime = ref(0)
 const timerInterval = ref(null)
+
+// Variables de estado para el modal
+const showPointsModal = ref(false)
+const earnedPoints = ref(0)
+const isBonus = ref(false)
 
 // --- LÓGICA DEL CRONÓMETRO ---
 
@@ -129,7 +159,6 @@ const updateTimer = () => {
 
   const now = new Date()
   
-  // [CAMBIO CLAVE 1] 
   // Añadimos 'Z' para indicar que la hora del servidor viene en UTC.
   // Esto arregla el bug de los 3600s si tu servidor está en la nube/docker.
   // Si tu servidor y tu PC tienen la misma hora local, quita la 'Z'.
@@ -145,7 +174,7 @@ const updateTimer = () => {
     diffSec = Math.max(0, totalSec - totalPausedSec)
     
   } else if (execution.value.status === 'PAUSED') {
-    // [CAMBIO CLAVE 2] Aplicar la misma lógica 'Z' al pauseTime
+    // Aplicar la misma lógica 'Z' al pauseTime
     if (execution.value.pauseTime) {
       const pauseTime = new Date(execution.value.pauseTime + (execution.value.pauseTime.endsWith('Z') ? '' : 'Z'))
       const totalMs = pauseTime - startTime
@@ -244,6 +273,7 @@ const closeFinishModal = () => {
   // (aquí no hace falta porque está pausada).
 }
 
+// FUNCIÓN HANDLE FINISH (Simplificada)
 const handleFinish = async (payload) => {
   if (!payload.activityType) {
     error.value = "Debes seleccionar un tipo de actividad."
@@ -254,13 +284,48 @@ const handleFinish = async (payload) => {
   error.value = ''
   
   try {
-    await finishExecution(execution.value.id, payload)
-    router.push('/') 
-    session.clearActiveExecution()
-  } catch {
+    // 1. LLAMADA AL BACKEND
+    // La respuesta ya trae todo calculado: { points: 150, calories: 450.5, ... }
+    const result = await finishExecution(execution.value.id, payload)
+    
+    // 2. LEER DATOS DEL BACKEND
+    const backendPoints = result.points !== undefined ? Number(result.points) : 0
+    const caloriesBurned = Number(result.calories) || 0 
+
+    // 3. (OPCIONAL) LEER PERFIL SOLO PARA UX (Mostrar etiqueta "¡Objetivo Superado!")
+    // Esto es solo visual, no afecta a los puntos guardados
+    try {
+      const userProfile = await getProfile()
+      const dailyGoalKcal = Number(userProfile.goalKcalDaily) || 0
+      
+      // Si hay objetivo y las calorías de esta ruta lo superan (o ayudan mucho)
+      if (dailyGoalKcal > 0 && caloriesBurned >= dailyGoalKcal) {
+        isBonus.value = true
+      } else {
+        isBonus.value = false
+      }
+    } catch (e) {
+      console.warn("No se pudo cargar perfil para comparar objetivo", e)
+    }
+
+    // 4. MOSTRAR MODAL
+    earnedPoints.value = backendPoints
+    showFinishModal.value = false
+    showPointsModal.value = true
+
+  } catch (err) {
+    console.error(err)
     error.value = 'Error al finalizar la ejecución.'
+  } finally {
     isFinishing.value = false
   }
+}
+
+// Función para cerrar el modal de puntos y salir
+const closePointsModalAndRedirect = () => {
+  showPointsModal.value = false
+  session.clearActiveExecution()
+  router.push('/') 
 }
 </script>
 
@@ -273,6 +338,7 @@ const handleFinish = async (payload) => {
   background: #f4f7f6;
   padding: 20px;
 }
+
 .run-card {
   width: 100%;
   max-width: 500px;
@@ -282,25 +348,30 @@ const handleFinish = async (payload) => {
   padding: 32px;
   border: 1px solid #e5e5e5;
 }
+
 .run-header {
   text-align: center;
   border-bottom: 1px solid #eee;
   padding-bottom: 20px;
 }
+
 .run-header h1 {
   font-size: 28px;
   font-weight: 700;
   margin: 0;
 }
+
 .run-header .distance {
   font-size: 18px;
   color: #555;
   margin: 4px 0 0;
 }
+
 .timer-section {
   padding: 40px 0;
   text-align: center;
 }
+
 .timer-display {
   font-size: 64px;
   font-weight: 300;
@@ -309,9 +380,11 @@ const handleFinish = async (payload) => {
   letter-spacing: -2px;
   transition: color 0.3s ease;
 }
+
 .timer-display.is-paused {
   color: #999;
 }
+
 .timer-status {
   margin-top: 8px;
   font-size: 14px;
@@ -320,17 +393,17 @@ const handleFinish = async (payload) => {
   color: #666;
 }
 
-/* --- CORRECCIÓN DE LAYOUT --- */
+/* --- CONTROLES --- */
 .controls-section {
-  display: flex;           /* Usamos flex en lugar de grid */
-  flex-direction: column;  /* Botones apilados verticalmente */
+  display: flex;
+  flex-direction: column;
   gap: 16px;
   margin-top: 16px;
   width: 100%;
 }
 
 .btn {
-  width: 100%; /* Ocupar todo el ancho */
+  width: 100%;
   padding: 16px;
   font-size: 16px;
   font-weight: 600;
@@ -339,31 +412,160 @@ const handleFinish = async (payload) => {
   cursor: pointer;
   transition: all 0.2s ease;
 }
+
 .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-/* --- CORRECCIÓN DE ESTILOS BOTÓN PAUSA --- */
+/* Pausa */
 .btn-pause {
-  background: #fff5e6;     /* Fondo amarillo muy suave */
-  color: #d35400;          /* Naranja oscuro / Marrón */
-  border: 2px solid #f39c12; /* Borde naranja */
+  background: #fff5e6;
+  color: #d35400;
+  border: 2px solid #f39c12;
 }
-.btn-pause:hover:not(:disabled) { 
-  background: #fdebd0; 
+.btn-pause:hover:not(:disabled) {
+  background: #fdebd0;
 }
 
+/* Reanudar */
 .btn-resume {
   background: #2ecc71;
   color: white;
-  /* border: none; Eliminamos border doble */
 }
-.btn-resume:hover:not(:disabled) { background: #27ae60; }
+.btn-resume:hover:not(:disabled) {
+  background: #27ae60;
+}
 
+/* Finalizar */
 .btn-finish {
   background: #e74c3c;
   color: white;
 }
-.btn-finish:hover:not(:disabled) { background: #c0392b; }
+.btn-finish:hover:not(:disabled) {
+  background: #c0392b;
+}
+
+/* --- MODAL DE PUNTOS (GAMIFICACIÓN) --- */
+.points-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.85); /* Fondo blanco translúcido */
+  backdrop-filter: blur(8px); /* Efecto cristal */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+}
+
+.points-modal-card {
+  background: #ffffff;
+  padding: 48px 32px;
+  border-radius: 32px;
+  text-align: center;
+  max-width: 340px;
+  width: 90%;
+  box-shadow: 0 20px 60px -10px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(0,0,0,0.03);
+  animation: floatUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes floatUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Icono Minimalista */
+.minimal-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  line-height: 1;
+  animation: popIcon 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s backwards;
+}
+
+@keyframes popIcon {
+  from { transform: scale(0.5); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* Tipografía */
+.points-modal-card h3 {
+  margin: 0 0 8px 0;
+  font-size: 22px;
+  color: #111;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.subtext {
+  margin: 0 0 32px 0;
+  color: #888;
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.bonus-text {
+  margin: 0 0 32px 0;
+  color: #d97706;
+  font-size: 14px;
+  font-weight: 600;
+  background: #fffbeb;
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 99px;
+}
+
+/* Score Minimalista */
+.minimal-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 40px;
+}
+
+.score-value {
+  font-size: 80px;
+  font-weight: 800;
+  line-height: 0.9;
+  color: #000;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, sans-serif;
+  letter-spacing: -3px;
+}
+
+.score-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #999;
+  text-transform: uppercase;
+  margin-top: 8px;
+}
+
+/* Botón del Modal */
+.btn-primary {
+  background: #000;
+  color: #fff;
+  width: 100%;
+  padding: 16px;
+  border-radius: 16px;
+  font-weight: 600;
+  font-size: 16px;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.1s ease, background 0.2s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.btn-primary:hover {
+  background: #222;
+  transform: translateY(-2px);
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
 </style>

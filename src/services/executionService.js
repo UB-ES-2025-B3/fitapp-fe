@@ -48,3 +48,25 @@ export const finishExecution = async (executionId, payload) => {
   const res = await api.post(`/api/v1/executions/me/finish/${executionId}`, payload)
   return res.data
 }
+
+/**
+ * Obtiene el historial de ejecuciones pasadas del usuario.
+ * Devuelve un array de ejecuciones ordenadas por fecha descendente.
+ *
+ * GET /api/v1/executions/me/history
+ *
+ * Estructura esperada de cada ejecución:
+ * {
+ *   routeName: string,
+ *   endTime: string,
+ *   distanceKm: number,
+ *   activityType: string,
+ *   durationSec: number,
+ *   calories: number,
+ *   points: number,
+ * }
+ */
+export const getExecutionHistory = async () => {
+  const res = await api.get('/api/v1/executions/me/history')
+  return res.data
+}
