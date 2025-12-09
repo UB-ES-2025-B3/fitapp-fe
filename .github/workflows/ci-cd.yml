@@ -104,7 +104,8 @@ jobs:
         with:
           start: npm run dev
           wait-on: 'http://localhost:5173'
-          browser: chrome
+          browser: electron
+          browser-args: --use-gl=swiftshader --disable-dev-shm-usage --force-device-scale-factor=1
         env:
           # Configuramos el Front para que ataque al Back local y NO use Mocks
           VITE_API_URL: http://localhost:8080
