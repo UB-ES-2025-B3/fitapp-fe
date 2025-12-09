@@ -1,9 +1,10 @@
 describe('Ejecución de Actividad y Gamificación', () => {
-  const RANDOM = Math.floor(Math.random() * 10000);
-  const EMAIL = `runner_${RANDOM}@test.com`;
-  const PASS = 'Pass123!';
 
   beforeEach(() => {
+    const RANDOM = Date.now(); // Date.now() es mejor que Math.random() para evitar colisiones
+    const EMAIL = `runner_${RANDOM}@test.com`;
+    const PASS = 'Pass123!';
+    
     // 1. REGISTRO NUEVO
     cy.visit('/register');
     cy.get('#email').type(EMAIL);
