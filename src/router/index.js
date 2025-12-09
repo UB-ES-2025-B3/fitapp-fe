@@ -80,6 +80,12 @@ const routes = [
     name: 'Evolution',
     component: () => import('@/views/Evolution.vue'),
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/history',
+    name: 'HistoryList',
+    component: () => import('@/views/HistoryList.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 
