@@ -180,7 +180,6 @@ const onSave = () => {
   margin-bottom: 8px;
   font-size: 14px;
 }
-.form-group select,
 .form-group textarea {
   width: 100%;
   padding: 12px 14px;
@@ -188,7 +187,27 @@ const onSave = () => {
   border-radius: 8px;
   font-size: 15px;
   font-family: inherit;
+
+  background-color: #fff; /* Asegura fondo blanco */
+  color: #333;            /* Color de texto legible */
+  resize: vertical;       /* Permite redimensionar solo verticalmente */
+  min-height: 80px;       /* Altura mínima cómoda para escribir */
+  line-height: 1.5;       /* Espaciado entre líneas de texto */
+  box-sizing: border-box; /* IMPORTANTE: Para que el padding no rompa el ancho */
 }
+.form-group textarea:focus {
+  outline: none;
+  border-color: #000;     /* Highlight al escribir */
+  background-color: #fafafa;
+}
+
+/* Estilo para el select: tal como estaba antes */
+.form-group select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 6px;
+}
+
 .required { color: #e74c3c; }
 .error-msg {
   color: #e74c3c;

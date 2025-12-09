@@ -181,7 +181,7 @@ describe('ActiveRun.vue', () => {
     expect(pointsModal.text()).toContain('150')
     
     // 2. Verifica que muestra mensaje de bonus (porque 600 kcal > 500 objetivo)
-    expect(pointsModal.text()).toContain('Objetivo diario superado')
+    expect(pointsModal.text()).toContain('Has superado tu meta diaria')
 
     // E. CERRAR Y REDIRIGIR
     const closeBtn = pointsModal.find('.btn-primary') // Botón "Volver a Inicio"
@@ -220,8 +220,8 @@ describe('ActiveRun.vue', () => {
     const pointsModal = wrapper.find('.points-modal-card')
     
     // Verificar que NO sale el mensaje de bonus
-    expect(pointsModal.text()).not.toContain('Objetivo diario superado')
-    expect(pointsModal.text()).toContain('Gran trabajo')
+    expect(pointsModal.text()).not.toContain('Has superado tu meta diaria')
+    expect(pointsModal.text()).toContain('Gran esfuerzo, sigue así')
     expect(pointsModal.text()).toContain('10') // Puntos base
   })
 

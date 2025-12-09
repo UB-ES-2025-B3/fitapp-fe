@@ -71,16 +71,19 @@
 
     <div v-if="showPointsModal" class="points-modal-overlay">
       <div class="points-modal-card">
-        <div class="points-icon">🏆</div>
-        <h3>¡Ruta finalizada!</h3>
         
-        <p v-if="isBonus" class="bonus-msg">¡Objetivo diario superado!</p>
-        <p v-else>¡Gran trabajo!</p>
+        <div class="minimal-icon">{{ earnedPoints > 0 ? '🏆' : '🏁' }}</div>
+        
+        <h3 v-if="earnedPoints > 0">¡Objetivo conseguido!</h3>
+        <h3 v-else>Ruta finalizada</h3>
+        
+        <p v-if="isBonus" class="bonus-text">Has superado tu meta diaria</p>
+        <p v-else-if="earnedPoints > 0" class="subtext">Gran esfuerzo, sigue así.</p>
+        <p v-else class="subtext">Buen entreno, ¡a por la próxima!</p>
 
-        <div class="points-score">
-          <span class="plus">+</span>
-          <span class="amount">{{ earnedPoints }}</span>
-          <span class="label">Puntos</span>
+        <div class="minimal-score">
+          <span class="score-value">{{ earnedPoints }}</span>
+          <span class="score-label">PTS</span>
         </div>
 
         <button class="btn btn-primary" @click="closePointsModalAndRedirect">
@@ -335,6 +338,7 @@ const closePointsModalAndRedirect = () => {
   background: #f4f7f6;
   padding: 20px;
 }
+
 .run-card {
   width: 100%;
   max-width: 500px;
@@ -344,25 +348,30 @@ const closePointsModalAndRedirect = () => {
   padding: 32px;
   border: 1px solid #e5e5e5;
 }
+
 .run-header {
   text-align: center;
   border-bottom: 1px solid #eee;
   padding-bottom: 20px;
 }
+
 .run-header h1 {
   font-size: 28px;
   font-weight: 700;
   margin: 0;
 }
+
 .run-header .distance {
   font-size: 18px;
   color: #555;
   margin: 4px 0 0;
 }
+
 .timer-section {
   padding: 40px 0;
   text-align: center;
 }
+
 .timer-display {
   font-size: 64px;
   font-weight: 300;
@@ -371,9 +380,11 @@ const closePointsModalAndRedirect = () => {
   letter-spacing: -2px;
   transition: color 0.3s ease;
 }
+
 .timer-display.is-paused {
   color: #999;
 }
+
 .timer-status {
   margin-top: 8px;
   font-size: 14px;
@@ -382,17 +393,17 @@ const closePointsModalAndRedirect = () => {
   color: #666;
 }
 
-/* --- CORRECCIÓN DE LAYOUT --- */
+/* --- CONTROLES --- */
 .controls-section {
-  display: flex;           /* Usamos flex en lugar de grid */
-  flex-direction: column;  /* Botones apilados verticalmente */
+  display: flex;
+  flex-direction: column;
   gap: 16px;
   margin-top: 16px;
   width: 100%;
 }
 
 .btn {
-  width: 100%; /* Ocupar todo el ancho */
+  width: 100%;
   padding: 16px;
   font-size: 16px;
   font-weight: 600;
@@ -401,157 +412,160 @@ const closePointsModalAndRedirect = () => {
   cursor: pointer;
   transition: all 0.2s ease;
 }
+
 .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-/* --- CORRECCIÓN DE ESTILOS BOTÓN PAUSA --- */
+/* Pausa */
 .btn-pause {
-  background: #fff5e6;     /* Fondo amarillo muy suave */
-  color: #d35400;          /* Naranja oscuro / Marrón */
-  border: 2px solid #f39c12; /* Borde naranja */
+  background: #fff5e6;
+  color: #d35400;
+  border: 2px solid #f39c12;
 }
-.btn-pause:hover:not(:disabled) { 
-  background: #fdebd0; 
+.btn-pause:hover:not(:disabled) {
+  background: #fdebd0;
 }
 
+/* Reanudar */
 .btn-resume {
   background: #2ecc71;
   color: white;
-  /* border: none; Eliminamos border doble */
 }
-.btn-resume:hover:not(:disabled) { background: #27ae60; }
+.btn-resume:hover:not(:disabled) {
+  background: #27ae60;
+}
 
+/* Finalizar */
 .btn-finish {
   background: #e74c3c;
   color: white;
 }
-.btn-finish:hover:not(:disabled) { background: #c0392b; }
+.btn-finish:hover:not(:disabled) {
+  background: #c0392b;
+}
 
-/* Estilos para Gamificación */
+/* --- MODAL DE PUNTOS (GAMIFICACIÓN) --- */
 .points-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(255, 255, 255, 0.85); /* Fondo blanco translúcido */
+  backdrop-filter: blur(8px); /* Efecto cristal */
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 3000;
-  backdrop-filter: blur(6px);
 }
 
 .points-modal-card {
-  background: white;
-  padding: 40px 30px;
-  border-radius: 28px;
+  background: #ffffff;
+  padding: 48px 32px;
+  border-radius: 32px;
   text-align: center;
-  max-width: 360px;
+  max-width: 340px;
   width: 90%;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
-  animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  box-shadow: 0 20px 60px -10px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(0,0,0,0.03);
+  animation: floatUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes popIn {
-  from { transform: scale(0.9); opacity: 0; }
+@keyframes floatUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Icono Minimalista */
+.minimal-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  line-height: 1;
+  animation: popIcon 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s backwards;
+}
+
+@keyframes popIcon {
+  from { transform: scale(0.5); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
 
-.points-icon {
-  font-size: 72px;
-  margin-bottom: 12px;
-  display: inline-block;
-  filter: drop-shadow(0 4px 0px rgba(0,0,0,0.1));
-}
-
+/* Tipografía */
 .points-modal-card h3 {
   margin: 0 0 8px 0;
-  font-size: 24px;
+  font-size: 22px;
   color: #111;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.5px;
 }
 
-/* Mensaje de texto (Gran trabajo / Bonus) */
-.points-modal-card p, .bonus-msg {
-  margin: 0 0 24px 0;
-  color: #666;
+.subtext {
+  margin: 0 0 32px 0;
+  color: #888;
   font-size: 15px;
-  line-height: 1.4;
+  font-weight: 400;
 }
 
-.bonus-msg {
-  color: #d97706 !important;
-  font-weight: 700;
+.bonus-text {
+  margin: 0 0 32px 0;
+  color: #d97706;
+  font-size: 14px;
+  font-weight: 600;
   background: #fffbeb;
-  padding: 4px 12px;
-  border-radius: 20px;
   display: inline-block;
+  padding: 4px 12px;
+  border-radius: 99px;
 }
 
-.points-score {
-  background: linear-gradient(180deg, #fffbeb 0%, #fff7ed 100%);
-  border: 2px solid #fbbf24;
-  border-radius: 50px; /* Bordes redondos tipo píldora */
-  padding: 8px 32px;   /* Menos altura, más ancho lateral */
-  display: inline-flex; /* IMPORTANTE: Se ajusta al contenido, no ocupa todo el ancho */
-  align-items: baseline;
+/* Score Minimalista */
+.minimal-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 4px;
-  color: #b45309;
-  margin-bottom: 28px;
-  box-shadow: 0 4px 10px rgba(251, 191, 36, 0.25);
-  min-width: 120px;
+  margin-bottom: 40px;
 }
 
-.points-score .plus {
-  font-size: 20px;
+.score-value {
+  font-size: 80px;
   font-weight: 800;
-  color: #d97706;
+  line-height: 0.9;
+  color: #000;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, sans-serif;
+  letter-spacing: -3px;
 }
 
-.points-score .amount {
-  font-size: 48px; /* Número grande */
-  font-weight: 900;
-  line-height: 1;
-  color: #92400e;
-  font-family: monospace; /* Alinea mejor los números */
-  letter-spacing: -2px;
-}
-
-.points-score .label {
-  font-size: 11px;
-  font-weight: 800;
+.score-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #999;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  color: #d97706;
-  margin-left: 6px;
+  margin-top: 8px;
 }
 
-/* Botón específico del modal */
+/* Botón del Modal */
 .btn-primary {
-  background: #111;
+  background: #000;
   color: #fff;
   width: 100%;
-  padding: 14px;
-  border-radius: 14px;
-  font-weight: 700;
+  padding: 16px;
+  border-radius: 16px;
+  font-weight: 600;
+  font-size: 16px;
   border: none;
   cursor: pointer;
-  transition: transform 0.1s;
-  font-size: 15px;
-}
-.btn-primary:active { transform: scale(0.98); }
-
-/* Ocultar desglose técnico si no lo quieres ver, o estilizarlo simple */
-.points-breakdown {
-  display: none; 
+  transition: transform 0.1s ease, background 0.2s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
+.btn-primary:hover {
+  background: #222;
+  transform: translateY(-2px);
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
 </style>
