@@ -51,8 +51,9 @@ describe('Gestión Avanzada de Rutas', () => {
     cy.visit('/routes/new');
     cy.get('input[placeholder*="Nombre"]').type('Ruta Parque Central');
     
-    // Espera para Mapbox
-    cy.wait(4000);
+    // --- ARREGLO MAPA CI ---
+    // Esperamos hasta 30s a que el canvas cargue
+    cy.get('.mapboxgl-canvas, canvas', { timeout: 30000 }).should('be.visible');
 
     // Hacemos clic en el CANVAS, no en el div contenedor
     // Buscamos 'canvas' dentro de '.map-area' (o la clase de Mapbox)
@@ -74,7 +75,7 @@ describe('Gestión Avanzada de Rutas', () => {
     
     // Verificar redirección
     cy.url().should('include', '/routes');
-    cy.contains('Ruta Parque Central').should('be.visible');
+    cy.contains('Ruta Parque Central', { timeout: 10000 }).should('be.visible');
   });
 
   it('Filtrado de rutas por buscador', () => {

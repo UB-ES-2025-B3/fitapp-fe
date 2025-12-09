@@ -52,20 +52,24 @@ describe('Ejecución de Actividad y Gamificación', () => {
     
     cy.get('input[placeholder*="Nombre"]').type('Ruta Gamification Test');
 
-    // Esperar a que el mapa cargue antes de hacer clic
-    cy.wait(2000);
+    // --- ARREGLO MAPA CI ---
+    // Esperamos hasta 30s a que el CANVAS de Mapbox exista y sea visible
+    cy.get('canvas.mapboxgl-canvas', { timeout: 30000 }).should('be.visible');
     
     // Marcar puntos en el mapa (Inicio y Fin)
     // Nos aseguramos de que .map-area sea el selector correcto de nuestro contenedor de mapa
     cy.get('.map-area').click(200, 200); // Click inicio
     cy.get('input[value="end"]').check({force: true}); // Cambiar radio a Fin
     cy.get('.map-area').click(300, 300); // Click fin
+
+    // Esperamos un segundo para asegurar que Mapbox procesó el click y pintó la línea
+    cy.wait(1000);
     
     cy.contains('button', 'Guardar ruta').click();
     
-    // Verificar que se guardó y redirigió al listado
+    // Verificar que se guardó (aumentamos timeout por si el back es lento)
     cy.url().should('include', '/routes');
-    cy.contains('Ruta Gamification Test').should('be.visible');
+    cy.contains('Ruta Gamification Test', { timeout: 10000 }).should('be.visible');
   });
 
   it('Flujo: Iniciar -> Pausar -> Finalizar -> Ver Modal Puntos', () => {
