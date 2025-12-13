@@ -114,7 +114,8 @@ const saving = ref(false)
 const error = ref('')
 const mapContainer = ref(null)
 
-const serverDistanceMeters = ref(null)
+//const serverDistanceMeters = ref(null)
+const serverDistanceMeters = ref(0);
 
 const router = useRouter()
 const route = useRoute()
@@ -135,6 +136,31 @@ function showToast(msg, ms = 1800) {
   toastMessage.value = msg
   toastVisible.value = true
   setTimeout(() => { toastVisible.value = false }, ms)
+}
+
+// Función para obtener la ruta real (calles) de Mapbox
+async function getRouteFromMapbox(coords) {
+  // coords debe ser array de arrays: [[lng, lat], [lng, lat]...]
+  if (coords.length < 2) return null;
+
+  // Construir string de coordenadas separadas por ;
+  const coordsString = coords.map(c => `${c[0]},${c[1]}`).join(';');
+  const token = mapboxgl.accessToken;
+  
+  // Usamos perfil 'walking'. Puedes cambiar a 'cycling' si prefieres.
+  const url = `https://api.mapbox.com/directions/v5/mapbox/walking/${coordsString}?steps=true&geometries=geojson&access_token=${token}`;
+
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    
+    if (data.routes && data.routes.length > 0) {
+      return data.routes[0]; // Retorna objeto con { geometry, distance, duration... }
+    }
+  } catch (error) {
+    console.error('Error fetching route:', error);
+  }
+  return null;
 }
 
 function initMap() {
@@ -302,45 +328,72 @@ function updateEndMarker() {
     .addTo(map)
 }
 
-function updateRouteLine() {
-  if (!map) return
-  if (!map.isStyleLoaded()) {
-    map.once('load', () => updateRouteLine())
-    return
+async function updateRouteLine() {
+  // 1. Limpiar capa previa
+  if (map.getSource('route')) {
+    map.removeLayer('route');
+    map.removeSource('route');
   }
-  if (map.getSource && map.getSource('route')) {
-    try {
-      map.removeLayer('route')
-      map.removeSource('route')
-    } catch { /* ignore */ }
+
+  // 2. Verificar que tenemos al menos Inicio y Fin
+  if (!startLatLng.value || !endLatLng.value) {
+    serverDistanceMeters.value = 0; // Resetear distancia
+    return;
   }
-  if (!startLatLng.value || !endLatLng.value) return
-  const routeCoordinates = [
-    [startLatLng.value.lng, startLatLng.value.lat],
-    ...checkpoints.value
-      .filter(cp => cp.lat != null && cp.lng != null)
-      .map(cp => [cp.lng, cp.lat]),
-    [endLatLng.value.lng, endLatLng.value.lat]
-  ]
+
+  // 3. Construir lista de waypoints en orden [Lng, Lat]
+  const waypoints = [
+    [startLatLng.value.lng, startLatLng.value.lat]
+  ];
+  
+  // Agregar checkpoints intermedios
+  checkpoints.value.forEach(cp => {
+    if (cp.lat && cp.lng) {
+      waypoints.push([cp.lng, cp.lat]);
+    }
+  });
+
+  // Agregar fin
+  waypoints.push([endLatLng.value.lng, endLatLng.value.lat]);
+
+  // 4. Obtener ruta de la API
+  const routeData = await getRouteFromMapbox(waypoints);
+
+  if (!routeData) return;
+
+  // 5. ACTUALIZAR DISTANCIA (Esto es lo que se enviará a tu Backend al guardar)
+  // routeData.distance viene en metros
+  serverDistanceMeters.value = routeData.distance;
+
+  // 6. Dibujar la línea compleja (calle por calle)
   map.addSource('route', {
     type: 'geojson',
     data: {
       type: 'Feature',
-      geometry: {
-        type: 'LineString',
-        coordinates: routeCoordinates
-      } }
-  })
+      properties: {},
+      geometry: routeData.geometry // GeoJSON detallado
+    }
+  });
+
   map.addLayer({
     id: 'route',
     type: 'line',
     source: 'route',
-    layout: { 'line-join': 'round', 'line-cap': 'round' },
-    paint: { 'line-color': '#777', 'line-width': 3, 'line-dasharray': [2, 2] }
-  })
-  const bounds = new mapboxgl.LngLatBounds()
-  routeCoordinates.forEach(coord => bounds.extend(coord))
-  map.fitBounds(bounds, { padding: 80 })
+    layout: {
+      'line-join': 'round',
+      'line-cap': 'round'
+    },
+    paint: {
+      'line-color': '#3b82f6', // Azul moderno
+      'line-width': 4,
+      'line-opacity': 0.8
+    }
+  });
+  
+  // Ajustar zoom para ver toda la ruta
+  const bounds = new mapboxgl.LngLatBounds();
+  routeData.geometry.coordinates.forEach(coord => bounds.extend(coord));
+  map.fitBounds(bounds, { padding: 80 });
 }
 
 function clearPoints() {
@@ -357,6 +410,7 @@ function clearPoints() {
   }
 }
 
+/*
 function haversineMeters(a, b) {
   if (!a || !b) return null
   const R = 6371000
@@ -371,7 +425,9 @@ function haversineMeters(a, b) {
   const c = 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1 - aa))
   return R * c
 }
+*/
 
+/*
 const distanceMeters = computed(() => {
   if (!startLatLng.value || !endLatLng.value) return null
   const points = [
@@ -387,9 +443,12 @@ const distanceMeters = computed(() => {
   }
   return dist
 })
+*/
 
 const formattedDistance = computed(() => {
-  const meters = serverDistanceMeters.value ?? distanceMeters.value
+  // AHORA: Usamos solo la distancia del servidor
+  const meters = serverDistanceMeters.value || 0 
+  
   if (!meters) return '-'
   const km = meters / 1000
   return `${km.toFixed(2)} km`
@@ -464,7 +523,7 @@ async function onSubmit() {
       endPoint: `${endLatLng.value.lat},${endLatLng.value.lng}`,
       start: startLatLng.value,
       end: endLatLng.value,
-      distanceKm: Number((distanceMeters.value / 1000).toFixed(2)),
+      distanceKm: Number((serverDistanceMeters.value / 1000).toFixed(2)), 
       checkpoints: cps
     }
     const res = await updateRoute(id, payload)

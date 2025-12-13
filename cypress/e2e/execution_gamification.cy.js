@@ -1,6 +1,22 @@
 describe('Ejecución de Actividad y Gamificación', () => {
 
   beforeEach(() => {
+    // 1. MOCK DE MAPBOX
+    // Esto evita que Cypress salga a internet a buscar la ruta
+    cy.intercept('GET', 'https://api.mapbox.com/directions/v5/mapbox/walking/*', {
+      statusCode: 200,
+      body: {
+        routes: [{
+          distance: 1250, // Simulamos 1.25 km
+          duration: 600,
+          geometry: {
+            type: 'LineString',
+            coordinates: [[2.17, 41.38], [2.18, 41.39]] // Coordenadas ficticias
+          }
+        }]
+      }
+    }).as('mapboxAPI');
+
     const RANDOM = Date.now(); // Date.now() es mejor que Math.random() para evitar colisiones
     const EMAIL = `runner_${RANDOM}@test.com`;
     const PASS = 'Pass123!';
@@ -62,8 +78,8 @@ describe('Ejecución de Actividad y Gamificación', () => {
     cy.get('input[value="end"]').check({force: true}); // Cambiar radio a Fin
     cy.get('.map-area').click(300, 300); // Click fin
 
-    // Esperamos un segundo para asegurar que Mapbox procesó el click y pintó la línea
-    cy.wait(1000);
+    // ESPERAR AL MOCK (Añadir esto)
+    cy.wait('@mapboxAPI');
     
     cy.contains('button', 'Guardar ruta').click();
     
