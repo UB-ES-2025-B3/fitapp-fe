@@ -168,6 +168,44 @@ const visibleCheckpoints = computed(() => {
     .filter(Boolean)
 })
 
+// En RoutesShow.vue
+
+async function getRouteFromMapbox(coords) {
+  // 1. Validar coordenadas
+  if (!coords || coords.length < 2) return null;
+
+  // 2. Asegurar el Token (A veces mapboxgl.accessToken se pierde al cambiar de vista)
+  const token = mapboxgl.accessToken || import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || import.meta.env.VITE_MAPBOX_TOKEN || '';
+  
+  if (!token) {
+    console.error('[RoutesShow] Falta el Token de Mapbox.');
+    return null;
+  }
+
+  // 3. Construir URL
+  const coordsString = coords.map(c => `${c[0]},${c[1]}`).join(';');
+  const url = `https://api.mapbox.com/directions/v5/mapbox/walking/${coordsString}?steps=true&geometries=geojson&access_token=${token}`;
+
+  try {
+    console.log('[RoutesShow] Pidiendo ruta a Mapbox...'); // Debug
+    const res = await fetch(url);
+    const data = await res.json();
+    
+    if (data.code && data.code !== 'Ok') {
+      console.error('[RoutesShow] Error API Mapbox:', data.message);
+      return null;
+    }
+
+    if (data.routes && data.routes.length > 0) {
+      console.log('[RoutesShow] Ruta recibida correctamente.'); // Debug
+      return data.routes[0];
+    }
+  } catch (error) {
+    console.error('[RoutesShow] Error de red:', error);
+  }
+  return null;
+}
+
 function initMap() {
   if (!mapContainer.value) {
     console.error('[RoutesShow] No se encontró mapContainer. El mapa no puede iniciar.')
@@ -236,30 +274,52 @@ function loadMarkersOnMap() {
   updateRouteLine()
 }
 
-function updateRouteLine() {
-  if (!map || !startLatLng.value || !endLatLng.value) return
+// En RoutesShow.vue
 
-  if (map.getSource('route')) {
-    map.removeLayer('route')
-    map.removeSource('route')
+async function updateRouteLine() {
+  // 1. Chequeos de seguridad
+  if (!map) return;
+  if (!startLatLng.value || !endLatLng.value) {
+    console.warn('[RoutesShow] Faltan puntos de inicio o fin.');
+    return;
   }
 
-  const routeCoordinates = [
+  // 2. LIMPIEZA SEGURA (Evita el error "The layer does not exist")
+  if (map.getLayer('route')) {
+    map.removeLayer('route');
+  }
+  if (map.getSource('route')) {
+    map.removeSource('route');
+  }
+
+  // 3. Preparar waypoints
+  const waypoints = [
     [startLatLng.value.lng, startLatLng.value.lat],
     ...visibleCheckpoints.value.map(cp => [cp.coords.lng, cp.coords.lat]),
     [endLatLng.value.lng, endLatLng.value.lat]
-  ]
+  ];
 
+  // 4. Pedir datos a la API
+  const routeData = await getRouteFromMapbox(waypoints);
+
+  if (!routeData) return;
+
+  // 5. Verificar que el estilo del mapa cargó antes de dibujar
+  if (!map.isStyleLoaded()) {
+    console.log('[RoutesShow] El mapa aún carga estilos. Esperando...');
+    map.once('idle', () => updateRouteLine());
+    return;
+  }
+
+  // 6. Dibujar la línea
   map.addSource('route', {
     type: 'geojson',
     data: {
       type: 'Feature',
-      geometry: {
-        type: 'LineString',
-        coordinates: routeCoordinates
-      }
+      properties: {},
+      geometry: routeData.geometry
     }
-  })
+  });
 
   map.addLayer({
     id: 'route',
@@ -270,15 +330,16 @@ function updateRouteLine() {
       'line-cap': 'round'
     },
     paint: {
-      'line-color': '#777',
-      'line-width': 3,
-      'line-dasharray': [2, 2]
+      'line-color': '#3b82f6', // Color Azul
+      'line-width': 5,
+      'line-opacity': 0.8
     }
-  })
-
-  const bounds = new mapboxgl.LngLatBounds()
-  routeCoordinates.forEach(coord => bounds.extend(coord))
-  map.fitBounds(bounds, { padding: 80 })
+  });
+  
+  // 7. Ajustar zoom para ver toda la ruta
+  const bounds = new mapboxgl.LngLatBounds();
+  routeData.geometry.coordinates.forEach(coord => bounds.extend(coord));
+  map.fitBounds(bounds, { padding: 80 });
 }
 
 function drawCheckpoints() {

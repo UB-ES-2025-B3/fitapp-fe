@@ -169,6 +169,10 @@ function showToast(msg, ms = 1800) {
 .route-distance { color:#666 }
 .row-actions { display:flex; gap:10px }
 .btn { padding:10px 14px; border-radius:10px; background:#000; color:#fff; border:none; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; justify-content:center }
+.btn:hover{
+  background: #333;
+  transform: translateY(-1px);
+}
 .btn.ghost { background:transparent; color:#333; border:1px solid #e6e6e6 }
 .btn.danger { background:#c53030 }
 .btn:disabled { opacity:0.6; cursor:not-allowed }
