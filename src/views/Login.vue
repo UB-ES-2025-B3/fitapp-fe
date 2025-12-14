@@ -1,5 +1,8 @@
 <template>
   <div class="register-container">
+    <div v-if="isSuccess" class="dialog-overlay">
+      <p>¡Inicio de sesión correcto!</p>
+    </div>
     <div class="register-card">
       <div class="card-header">
         <h1>Iniciar Sesión</h1>
@@ -135,6 +138,14 @@ const isFormValid = computed(() => {
   )
 })
 
+const isSuccess = ref(false);
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+const mostrarYOcultarDialog = async () => {
+
+    isSuccess.value = true;
+    await delay(1000);
+    isSuccess.value = false;
+};
 
 // handleSubmit:
 // 1) validar campos
@@ -162,6 +173,8 @@ const handleSubmit = async () => {
     if (!token) {
       throw new Error('Respuesta inválida del servidor: falta token')
     }
+
+    await mostrarYOcultarDialog()
 
     // Guardar token y estado de perfil en el store (y localStorage via action)
     session.setSession(token, profileComplete)
@@ -192,6 +205,24 @@ const handleSubmit = async () => {
   justify-content: center;
   background: #fafafa;
   padding: 40px 20px;
+}
+
+.dialog-overlay {
+  position: fixed; /* Fija la posición en la ventana */
+  top: 20px;
+  left: auto;
+  right: auto;
+  height: auto;
+  z-index: 1000; /* Asegura que esté por encima de otros elementos */
+  background: #dbffdc;
+  box-shadow: 0 0 10px rgba(36, 228, 3, 0.8);
+  color: black;
+  font-weight:normal;
+  padding: 10px;
+  border-radius: 8px;
+  max-width: 200px;
+  width: 90%;
+  text-align: center;
 }
 
 .register-card {

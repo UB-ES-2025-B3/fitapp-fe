@@ -365,7 +365,7 @@ const isKpisLoaded = computed(() => {
 /* --- Hero --- */
 .hero-section {
   background: linear-gradient(135deg, #00bfb3 0%, #0091ae 100%);
-  padding: 80px 24px;
+  padding: 20px 24px;
   color: #ffffff;
   position: relative;
   overflow: hidden;
@@ -380,7 +380,7 @@ const isKpisLoaded = computed(() => {
   pointer-events: none;
 }
 .hero-content {
-  max-width: 1200px;
+  max-width: 900px;
   margin: 0 auto;
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -399,8 +399,10 @@ const isKpisLoaded = computed(() => {
   font-size: 18px; opacity: 0.9; margin: 0; font-weight: 400; line-height: 1.6;
 }
 .hero-illustration {
-  flex: 1; display: flex; justify-content: center; align-items: center; font-size: 160px;
+  flex: 1; display: flex; justify-content: center; align-items: center;
   animation: float 3s ease-in-out infinite; opacity: 0.9;
+
+  width: auto;
 }
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
@@ -509,7 +511,7 @@ const isKpisLoaded = computed(() => {
 .error-container h3 { color: #dc2626; margin: 0 0 8px 0; font-size: 22px; }
 .error-container p { color: #6b7280; margin: 0 0 24px 0; }
 .btn-retry { background: #111827; color: #fff; border: none; padding: 12px 24px; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 15px; transition: all 0.2s ease; }
-.btn-retry:hover { background: #1f2937; transform: translateY(-1px); }
+.btn-retry:hover { background: #333; transform: translateY(-1px); }
 
 /* --- Responsive --- */
 @media (max-width: 768px) {

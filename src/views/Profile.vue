@@ -438,8 +438,8 @@ const changePassword = async () => {
   try {
     // Enviar solicitud al backend
     await updatePassword(
-      pwd.value.current, 
-      pwd.value.new, 
+      pwd.value.current,
+      pwd.value.new,
       pwd.value.confirm
     );
 
@@ -541,6 +541,11 @@ const changePassword = async () => {
   border: none;
   cursor: pointer;
   font-weight: 700;
+  transition: 1s;
+}
+.btn:hover{
+  background: #333;
+  transform: translateY(-1px);
 }
 .btn.ghost {
   background: transparent;

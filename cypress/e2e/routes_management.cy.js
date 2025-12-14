@@ -5,6 +5,16 @@ describe('Gestión Avanzada de Rutas', () => {
   });
 
   beforeEach(() => {
+    // AÑADIR MOCK
+    cy.intercept('GET', '**/directions/v5/mapbox/walking/*', {
+        body: {
+            routes: [{
+                distance: 5000, // 5km
+                geometry: { type: 'LineString', coordinates: [[0,0], [1,1]] }
+            }]
+        }
+    }).as('getRoute');
+
     // 1. GENERAR DATOS ÚNICOS PARA CADA TEST INDIVIDUAL
     // Al ponerlo aquí dentro, cada 'it' tendrá un usuario distinto
     const RANDOM = Date.now();
@@ -68,8 +78,7 @@ describe('Gestión Avanzada de Rutas', () => {
     // Punto Final (en coordenadas distintas)
     cy.get('.mapboxgl-canvas, canvas').first().click(500, 300, { force: true }); // Punto Fin
     
-    // Otra pausa para asegurar que se dibuja la línea
-    cy.wait(1000);
+    cy.wait('@getRoute');
     
     cy.contains('button', 'Guardar ruta').click();
     

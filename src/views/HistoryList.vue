@@ -237,7 +237,7 @@ onMounted(() => {
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  transition: background 0.2s;
+  transition: backg round 0.2s;
 }
 
 .btn-retry:hover {
@@ -337,7 +337,7 @@ onMounted(() => {
 .btn {
   display: inline-block;
   padding: 8px 16px;
-  background: #0066cc;
+  background: #000;
   color: white;
   border: none;
   border-radius: 6px;
@@ -349,7 +349,8 @@ onMounted(() => {
 }
 
 .btn:hover {
-  background: #0052a3;
+  background: #333;
+  transform: translateY(-1px);
 }
 
 /* Responsive */
