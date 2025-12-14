@@ -1,5 +1,8 @@
 <template>
     <div class="register-container">
+        <div v-if="isSuccess" class="dialog-overlay">
+          <p>¡Registro exitoso!</p>
+        </div>
         <div class="register-card">
             <div class="card-header">
                 <h1>Crear Cuenta</h1>
@@ -118,6 +121,7 @@ const errors = ref({
 // ESTADOS DE LA UI
 const isLoading = ref(false)
 const submitError = ref('')
+const isSuccess = ref(false)
 
 // Validaciones individuales (breves)
 const validateEmail = () => {
@@ -198,6 +202,14 @@ const isFormValid = computed(() => {
   return allFieldsFilled && noErrors && passwordsMatch
 })
 
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+const mostrarYOcultarDialog = async () => {
+
+    isSuccess.value = true;
+    await delay(1000);
+    isSuccess.value = false;
+};
+
 // Manejo del submit:
 // 1) validar campos
 // 2) llamar registerUser en el backend
@@ -236,6 +248,9 @@ const handleSubmit = async () => {
       throw new Error('Respuesta inválida del servidor: falta token')
     }
 
+    mostrarYOcultarDialog()
+    await delay(500);
+
     // Guardar token y estado de perfil en el store
     session.setSession(token, profileComplete)
 
@@ -247,8 +262,7 @@ const handleSubmit = async () => {
     } else {
       await router.push({ name: 'OnboardingProfile' })
     }
-
-    alert('¡Registro exitoso!')
+    // alert('¡Registro exitoso!')
     console.log('Usuario creado:', response)
 
   } catch (error) {
@@ -263,12 +277,31 @@ const handleSubmit = async () => {
 
 <style scoped>
 .register-container {
+  position:relative;
   min-height: calc(100vh - 70px);
   display: flex;
   align-items: center;
   justify-content: center;
   background: #fafafa;
   padding: 40px 20px;
+}
+
+.dialog-overlay {
+  position: fixed; /* Fija la posición en la ventana */
+  top: 20px;
+  left: auto;
+  right: auto;
+  height: auto;
+  z-index: 1000; /* Asegura que esté por encima de otros elementos */
+  background: #dbffdc;
+  box-shadow: 0 0 10px rgba(36, 228, 3, 0.8);
+  color: black;
+  font-weight:normal;
+  padding: 10px;
+  border-radius: 8px;
+  max-width: 200px;
+  width: 90%;
+  text-align: center;
 }
 
 .register-card {

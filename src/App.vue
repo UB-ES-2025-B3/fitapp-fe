@@ -190,12 +190,13 @@ const logout = () => {
 
 .btn-primary {
   background: #000000;
-  color: #ffffff !important;
+  color: #ffff;
   border: 1px solid #000000;
 }
 
 .btn-primary:hover {
   background: #333333;
+  color: #ffff;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
