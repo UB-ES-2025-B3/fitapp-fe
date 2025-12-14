@@ -261,7 +261,7 @@ const handleSubmit = async () => {
     } else {
       await router.push({ name: 'OnboardingProfile' })
     }
-    // alert('¡Registro exitoso!')
+
     console.log('Usuario creado:', response)
 
   } catch (error) {

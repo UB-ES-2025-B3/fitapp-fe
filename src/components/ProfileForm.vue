@@ -265,11 +265,9 @@ const handleSubmit = async () => {
     }
 
     // Feedback básico y notificar al padre con los datos guardados
-    alert('Perfil guardado correctamente.')
     emit('onSave', saved)
   } catch (err) {
     console.error('ProfileForm error', err)
-    alert(err.response?.data?.message || err.message || 'Error al guardar perfil')
   } finally {
     isSaving.value = false
   }

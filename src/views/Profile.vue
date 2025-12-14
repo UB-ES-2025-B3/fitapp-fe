@@ -137,6 +137,13 @@
         </form>
       </section>
     </div>
+    <div
+        v-if="toastVisible"
+        class="toast"
+        :class="{ 'error-message': toastType === 'error' }"
+    >
+        {{ toastMessage }}
+    </div>
   </div>
 </template>
 
@@ -221,6 +228,16 @@ const pwdErrors = ref({
   server: ""
 });
 
+const toastMessage = ref('')
+const toastVisible = ref(false)
+const toastType = ref('success')
+
+function showToast(msg, type = 'success', ms = 1800) { // <-- Aceptar parámetro 'type'
+  toastMessage.value = msg
+  toastType.value = type // <-- Asignar el tipo
+  toastVisible.value = true
+  setTimeout(() => { toastVisible.value = false }, ms)
+}
 
 // Carga inicial del perfil:
 //  - llama GET /profiles/me
@@ -386,10 +403,11 @@ const saveProfile = async () => {
     };
     Object.assign(form.value, { ...loaded.value });
 
-    alert("Perfil guardado correctamente.");
+    showToast("Perfil guardado correctamente.", 'success');
   } catch (err) {
     console.error("Error guardando perfil", err);
-    alert(err.response?.data?.message || err.message || "Error al guardar perfil.");
+    const errorMessage = err.response?.data?.message || err.message || "Error al guardar perfil.";
+    showToast(errorMessage, 'error');
   } finally {
     saving.value = false;
   }
@@ -448,12 +466,13 @@ const changePassword = async () => {
     pwd.value.new = "";
     pwd.value.confirm = "";
     pwdErrors.value = { current: "", new: "", confirm: "", server: "" };
-    alert("Contraseña cambiada exitosamente.");
+    showToast("Contraseña cambiada exitosamente.", 'success');
   } catch (err) {
     // Manejar errores del backend y mostrarlos en el DOM
     const errorMessage = err.response?.data?.message || err.message || "Error al cambiar la contraseña.";
     pwdErrors.value.server = errorMessage;
     console.error("Error al cambiar la contraseña:", err);
+    showToast(errorMessage, 'error', 3000);
   } finally {
     changingPwd.value = false;
   }
@@ -541,11 +560,6 @@ const changePassword = async () => {
   border: none;
   cursor: pointer;
   font-weight: 700;
-  transition: 1s;
-}
-.btn:hover{
-  background: #333;
-  transform: translateY(-1px);
 }
 .btn.ghost {
   background: transparent;
@@ -568,4 +582,24 @@ const changePassword = async () => {
   /* Añadida regla responsive para apilar filas */
   .row { flex-direction: column; }
 }
+
+.toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  background: #2f855a;
+  color: #fff;
+  padding: 12px 16px;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+  font-size: 14px;
+  z-index: 1000;
+  font-weight: 500;
+}
+.error-message {
+  background-color: #ef4444;
+  border: 1px solid #fecaca;
+  color: white;
+}
+
 </style>

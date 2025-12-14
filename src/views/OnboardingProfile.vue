@@ -30,10 +30,9 @@ const mostrarYOcultarDialog = async () => {
     isSuccess.value = false;
 };
 
-const handleProfileSaved = () => {
+const handleProfileSaved = async () => {
   // Persistir flag profileExists y redirigir a home
-  mostrarYOcultarDialog()
-  delay(500);
+  await mostrarYOcultarDialog()
   session.setSession(session.token, true)
   router.push({ name: 'home' })
 }
