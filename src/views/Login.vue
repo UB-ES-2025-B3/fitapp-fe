@@ -173,8 +173,8 @@ const handleSubmit = async () => {
     if (!token) {
       throw new Error('Respuesta inválida del servidor: falta token')
     }
-    mostrarYOcultarDialog()
-    await delay(500);
+
+    await mostrarYOcultarDialog()
 
     // Guardar token y estado de perfil en el store (y localStorage via action)
     session.setSession(token, profileComplete)
